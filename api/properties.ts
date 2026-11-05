@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { requireSession } from '../src/server/auth';
+import { requireSession } from '../src/server/auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');

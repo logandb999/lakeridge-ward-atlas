@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { OAuth2Client, CodeChallengeMethod } from 'google-auth-library';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { authConfig, cookie, getSession, isSameOrigin, readCookie, SESSION_SECONDS, signAuthToken, verifyAuthToken } from '../../src/server/auth';
+import { authConfig, cookie, getSession, isSameOrigin, readCookie, SESSION_SECONDS, signAuthToken, verifyAuthToken } from '../../src/server/auth.js';
 
 export function allowedGoogleIdentity(payload: { sub?: string; email?: string; email_verified?: boolean; name?: string; nonce?: unknown } | undefined, nonce: string) {
   const config = authConfig();
