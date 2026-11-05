@@ -17,4 +17,8 @@ await sql`CREATE TABLE IF NOT EXISTS atlas_state (
 await sql`INSERT INTO atlas_state (id, data)
   SELECT 1, COALESCE(jsonb_agg(data ORDER BY address), '[]'::jsonb) FROM properties
   ON CONFLICT (id) DO NOTHING`;
+await sql`CREATE TABLE IF NOT EXISTS atlas_map_usage (
+  period text PRIMARY KEY CHECK (period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
+  loads integer NOT NULL CHECK (loads >= 0 AND loads <= 9500)
+)`;
 console.log('Atlas database schema is ready.');

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { APIProvider } from '@vis.gl/react-google-maps';
 import { Property, FilterState, UserAccount, WardRole, FollowUpItem, VisitLog } from './types';
 import { storageService, computePropertyStatus, getTodayDateString, getDaysDiffFromToday } from './services/storageService';
 import { Header } from './components/Header';
 import { MapView } from './components/MapView';
-import { GoogleMapView } from './components/GoogleMapView';
+import { BudgetedGoogleMap } from './components/BudgetedGoogleMap';
 import { MapSidebar } from './components/MapSidebar';
 import { PropertyDetail } from './components/PropertyDetail';
 import { FollowUpList } from './components/FollowUpList';
@@ -188,7 +187,7 @@ export default function App() {
   }, [properties, today]);
 
   return (
-    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['marker']}>
+    <>
       <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-hidden">
         {/* Google Maps Quota Exceeded In-App Banner */}
         {quotaExceeded && (
@@ -359,8 +358,9 @@ export default function App() {
                 )}
 
                 {/* Primary Map Engine: Google Maps or Ward GIS Vector Map */}
-                {mapMode === 'google' && GOOGLE_MAPS_API_KEY ? (
-                  <GoogleMapView
+                {mapMode === 'google' && GOOGLE_MAPS_API_KEY && sync.access === 'ready' ? (
+                  <BudgetedGoogleMap
+                    apiKey={GOOGLE_MAPS_API_KEY}
                     properties={properties}
                     selectedPropertyId={selectedPropertyId}
                     onSelectProperty={id => setSelectedPropertyId(id)}
@@ -523,6 +523,6 @@ export default function App() {
       />
       </div>
       </div>
-    </APIProvider>
+    </>
   );
 }
