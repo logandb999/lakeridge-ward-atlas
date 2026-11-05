@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Property, FilterState, UserAccount, WardRole, FollowUpItem, VisitLog } from './types';
 import { storageService, computePropertyStatus, getTodayDateString, getDaysDiffFromToday } from './services/storageService';
-import { MOCK_USERS } from './data/roles';
 import { Header } from './components/Header';
 import { MapView } from './components/MapView';
 import { GoogleMapView } from './components/GoogleMapView';
@@ -31,7 +30,6 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 export default function App() {
   // Primary State
   const [properties, setProperties] = useState<Property[]>([]);
-  const [accessToken, setAccessToken] = useState('');
   const [sync, setSync] = useState(storageService.getSyncState());
   const [today, setToday] = useState(getTodayDateString());
   const downloadUnsaved = () => {
@@ -44,7 +42,25 @@ export default function App() {
   };
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'map' | 'follow_ups' | 'directory'>('map');
-  const [currentUser, setCurrentUser] = useState<UserAccount>(MOCK_USERS[0]); // Bishop Marcus Vance
+  const currentUser: UserAccount = {
+    id: sync.user?.id ?? '', name: sync.user?.name ?? '', role: 'all', roleTitle: 'Administrator',
+    avatarInitials: (sync.user?.name ?? '').split(' ').filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase(),
+  };
+  const [authError] = useState(() => {
+    const errors: Record<string, string> = {
+      not_allowed: 'This Google account is not authorized to access the atlas. Choose your authorized account.',
+      cancelled: 'Google sign-in was cancelled. You can try again.',
+      failed: 'Google sign-in could not be completed. Please try again.',
+      unavailable: 'Google sign-in is temporarily unavailable. Please try again.',
+    };
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('auth_error');
+    if (error) { params.delete('auth_error'); window.history.replaceState(null, '', window.location.pathname + (params.size ? `?${params}` : '') + window.location.hash); }
+    return error ? errors[error] ?? errors.failed : '';
+  });
+  const signIn = () => {
+    if (!storageService.hasUnsavedChanges() || window.confirm('Sign-in opens a new page. Download any unsaved changes before continuing. Continue to Google?')) window.location.assign('/api/auth/login');
+  };
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -79,6 +95,7 @@ export default function App() {
       setSync(storageService.getSyncState());
     };
     window.addEventListener('atlas-storage-update', handleStorageUpdate);
+    handleStorageUpdate();
     return () => window.removeEventListener('atlas-storage-update', handleStorageUpdate);
   }, []);
 
@@ -193,21 +210,25 @@ export default function App() {
 
         {/* Top Bar Header */}
         {sync.access !== 'ready' && (
-          <form onSubmit={async event => { event.preventDefault(); if (accessToken.trim()) await storageService.setAccessToken(accessToken); }} className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/80 p-4">
+          <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/80 p-4">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-              <h1 className="text-lg font-semibold">Atlas access required</h1>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Enter the access token provided by the atlas administrator.</p>
-              <label htmlFor="atlas-token" className="mt-4 block text-sm font-medium">Access token</label>
-              <input id="atlas-token" autoFocus required type="password" value={accessToken} onChange={event => setAccessToken(event.target.value)} disabled={sync.access === 'checking'} className="mt-2 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2" autoComplete="current-password" aria-describedby="access-message" />
-              <p id="access-message" role="status" className="mt-2 text-sm text-rose-600">{sync.message}</p>
-              <button disabled={sync.access === 'checking' || !accessToken.trim()} className="mt-3 w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50">{sync.access === 'checking' ? 'Verifying access…' : 'Continue'}</button>
+              <h1 className="text-xl font-semibold">Welcome to Lakeridge Ward Atlas</h1>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Sign in with your authorized Google account to open the atlas.</p>
+              <p role="status" className="mt-3 text-sm text-rose-600">{sync.message || authError}</p>
+              <button onClick={signIn} disabled={sync.access === 'checking' || !sync.configured} className="mt-4 w-full rounded-lg border border-slate-300 px-4 py-3 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50">{sync.access === 'checking' ? 'Checking your session…' : 'Sign in with Google'}</button>
+              {sync.status === 'error' && !storageService.hasUnsavedChanges() && <button onClick={() => void storageService.loadPropertiesAsync()} className="mt-3 w-full text-sm underline">Retry connection</button>}
+              {storageService.hasUnsavedChanges() && <button onClick={downloadUnsaved} className="mt-3 w-full text-sm underline">Download unsaved changes before signing in</button>}
             </div>
-          </form>
+          </div>
         )}
         {sync.access === 'ready' && (
           <div role="status" aria-live="polite" className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 text-sm dark:border-slate-800 dark:bg-slate-900 flex items-center justify-between gap-3">
             <span>{sync.status === 'saving' ? 'Saving… Keep this page open.' : sync.status === 'loading' ? 'Loading latest records…' : sync.status === 'saved' ? 'Saved to shared database' : 'Changes have not been saved'}</span>
-            <button disabled={sync.status !== 'saved'} onClick={() => void storageService.reload()} className="underline disabled:opacity-40">Refresh records</button>
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <span className="hidden sm:inline text-xs text-slate-500">{sync.user?.email}</span>
+              <button disabled={sync.status !== 'saved'} onClick={() => void storageService.reload()} className="underline disabled:opacity-40">Refresh records</button>
+              <button disabled={sync.status !== 'saved'} onClick={() => void storageService.signOut()} className="underline disabled:opacity-40">Sign out</button>
+            </div>
           </div>
         )}
         {sync.access === 'ready' && (sync.status === 'error' || sync.status === 'conflict') && (
@@ -232,7 +253,6 @@ export default function App() {
             setCurrentView(view);
           }}
           currentUser={currentUser}
-          onUserChange={setCurrentUser}
           pendingCount={pendingCount}
           overdueCount={overdueCount}
           totalProperties={properties.length}

@@ -1,12 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { requireSession } from '../src/server/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
-  const expected = process.env.ATLAS_ACCESS_TOKEN;
-  if (!expected || req.headers['x-atlas-access-token'] !== expected) {
-    return res.status(401).json({ error: 'Access token is invalid.' });
-  }
+  if (!await requireSession(req, res)) return;
   try {
     if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
     const sql = neon(process.env.DATABASE_URL);

@@ -41,9 +41,14 @@ test('access, serialized saves, retry, conflict preservation and reload', async 
   let failSave = false;
   let release: (() => void) | undefined;
   const revisions: number[] = [];
-  globalThis.fetch = (async (_url, options) => {
-    const token = (options?.headers as Record<string, string>)['x-atlas-access-token'];
-    if (token !== 'valid') return Response.json({}, { status: 401 });
+  let authenticated = false;
+  const user = { id: 'google-test-subject', email: 'owner@example.com', name: 'Atlas Owner' };
+  globalThis.fetch = (async (url, options) => {
+    assert.equal(options?.credentials, 'same-origin');
+    assert.equal((options?.headers as Record<string, string> | undefined)?.['x-atlas-access-token'], undefined);
+    if (url === '/api/auth/session') return Response.json({ configured: true, user: authenticated ? user : null });
+    if (url === '/api/auth/logout') { authenticated = false; return Response.json({ ok: true }); }
+    if (!authenticated) return Response.json({}, { status: 401 });
     if (options?.method === 'PUT') {
       const body = JSON.parse(options.body as string);
       revisions.push(body.revision);
@@ -56,11 +61,11 @@ test('access, serialized saves, retry, conflict preservation and reload', async 
     return Response.json({ properties: serverRecords, revision: serverRevision });
   }) as typeof fetch;
 
-  await store.setAccessToken('wrong');
+  await store.loadPropertiesAsync();
   assert.equal(store.getSyncState().access, 'required');
-  assert.match(store.getSyncState().message, /invalid/);
   assert.throws(() => store.clearAllData(), /Reconnect/);
-  await store.setAccessToken('valid');
+  authenticated = true;
+  await store.loadPropertiesAsync();
   assert.equal(store.getSyncState().access, 'ready');
   assert.equal(store.getSyncState().status, 'saved');
   const propertyId = serverRecords[0].id;
@@ -101,4 +106,17 @@ test('access, serialized saves, retry, conflict preservation and reload', async 
   await store.reload();
   assert.equal(store.loadProperties()[0].generalNotes, 'other leader');
   assert.equal(store.hasUnsavedChanges(), false);
+
+  authenticated = false; // Session expires while editing.
+  store.updatePropertyNotes(propertyId, { generalNotes: 'keep after session expiry' });
+  await tick();
+  assert.equal(store.getSyncState().access, 'required');
+  assert.match(store.exportData(), /keep after session expiry/);
+  assert.equal(store.hasUnsavedChanges(), true);
+  authenticated = true;
+  await store.loadPropertiesAsync();
+  await store.signOut();
+  assert.equal(store.getSyncState().access, 'required');
+  assert.equal(store.getSyncState().user, null);
+  assert.deepEqual(store.loadProperties(), []);
 });

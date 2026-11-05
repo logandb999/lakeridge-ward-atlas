@@ -2,7 +2,7 @@ import { FollowUpItem, FollowUpStatus, Property, VisitLog } from '../types';
 import { SAMPLE_FICTIONAL_PROPERTIES } from '../data/mockProperties';
 
 
-const ACCESS_KEY = 'lakeridge_ward_atlas_access_token';
+export interface SignedInUser { id: string; email: string; name: string }
 
 export function getTodayDateString(): string {
   const now = new Date();
@@ -42,27 +42,25 @@ export type SyncState = {
   access: 'required' | 'checking' | 'ready';
   status: 'idle' | 'loading' | 'saving' | 'saved' | 'error' | 'conflict';
   message: string;
+  user: SignedInUser | null;
+  configured: boolean;
 };
 let cache: Property[] = [];
 let revision: number | null = null;
-let sync: SyncState = { access: 'required', status: 'idle', message: '' };
+let sync: SyncState = { access: 'checking', status: 'idle', message: '', user: null, configured: true };
 let saving = false;
 let generation = 0;
 let persistedGeneration = 0;
 function publish() { window.dispatchEvent(new Event('atlas-storage-update')); }
 function setSync(update: Partial<SyncState>) { sync = { ...sync, ...update }; publish(); }
-function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem(ACCESS_KEY);
-  return token ? { 'x-atlas-access-token': token } : {};
-}
 async function request(method: 'GET' | 'PUT', body?: unknown) {
   const response = await fetch('/api/properties', {
-    method, headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(20000),
   });
   if (!response.ok) {
-    const error = new Error(response.status === 401 ? 'Access token is invalid. Please try again.' :
+    const error = new Error(response.status === 401 ? 'Your session has expired. Sign in with Google again.' :
       response.status === 409 ? 'Another leader saved changes. Download your unsaved changes, then load the latest records.' :
       'The shared database is unavailable. Please try again.');
     Object.assign(error, { status: response.status });
@@ -71,7 +69,7 @@ async function request(method: 'GET' | 'PUT', body?: unknown) {
   return response.json();
 }
 async function load(): Promise<Property[]> {
-  if (!localStorage.getItem(ACCESS_KEY)) { setSync({ access: 'required', status: 'idle' }); return cache; }
+  if (!sync.user) { setSync({ access: 'required', status: 'idle' }); return cache; }
   setSync({ access: revision === null ? 'checking' : sync.access, status: 'loading', message: '' });
   try {
     const data = await request('GET');
@@ -82,7 +80,7 @@ async function load(): Promise<Property[]> {
     setSync({ access: 'ready', status: 'saved', message: '' });
   } catch (error) {
     const unauthorized = (error as { status?: number }).status === 401;
-    if (unauthorized) localStorage.removeItem(ACCESS_KEY);
+    if (unauthorized) sync.user = null;
     setSync({ access: unauthorized || revision === null ? 'required' : 'ready', status: 'error', message: error instanceof Error ? error.message : 'Could not connect. Please try again.' });
   }
   return cache;
@@ -101,7 +99,8 @@ async function flush(): Promise<void> {
     }
     setSync({ status: 'saved', message: '' });
   } catch (error) {
-    setSync({ status: (error as { status?: number }).status === 409 ? 'conflict' : 'error',
+    const unauthorized = (error as { status?: number }).status === 401;
+    setSync({ ...(unauthorized ? { access: 'required', user: null } as const : {}), status: (error as { status?: number }).status === 409 ? 'conflict' : 'error',
       message: error instanceof Error ? error.message : 'Save failed. Your changes are still open here. Retry to save them.' });
   } finally { saving = false; }
 }
@@ -118,9 +117,34 @@ const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString
 
 export const storageService = {
   loadProperties(): Property[] { return cache; },
-  async loadPropertiesAsync(): Promise<Property[]> { return load(); },
+  async loadPropertiesAsync(): Promise<Property[]> {
+    // Remove obsolete shared credentials from earlier app versions.
+    localStorage.removeItem('lakeridge_ward_atlas_access_token');
+    setSync({ access: 'checking', status: 'loading', message: '' });
+    try {
+      const response = await fetch('/api/auth/session', { credentials: 'same-origin', signal: AbortSignal.timeout(20000) });
+      const session = await response.json();
+      if (!response.ok) {
+        setSync({ access: 'required', status: 'error', configured: session.configured !== false, message: 'Google sign-in is not available yet. Please contact the app administrator.' });
+        return cache;
+      }
+      setSync({ user: session.user, configured: true });
+      if (!session.user) { setSync({ access: 'required', status: 'idle' }); return cache; }
+      return load();
+    } catch {
+      setSync({ access: 'required', status: 'error', message: 'Could not connect. Please try again.' });
+      return cache;
+    }
+  },
   getSyncState(): SyncState { return sync; },
-  async setAccessToken(token: string): Promise<void> { localStorage.setItem(ACCESS_KEY, token.trim()); await load(); },
+  async signOut(): Promise<void> {
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin', signal: AbortSignal.timeout(20000) });
+      if (!response.ok) throw new Error('Could not sign out');
+      cache = []; revision = null; generation = persistedGeneration = 0;
+      setSync({ access: 'required', status: 'idle', message: '', user: null });
+    } catch { setSync({ status: 'error', message: 'Could not sign out. Please try again.' }); }
+  },
   async reload(): Promise<Property[]> { return load(); },
   async retrySave(): Promise<void> { await flush(); },
   hasUnsavedChanges(): boolean { return generation > persistedGeneration; },
