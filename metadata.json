@@ -1,0 +1,6 @@
+{
+  "name": "Lakeridge Ward Atlas",
+  "description": "A private, residential-first coordination atlas for ward leaders to track visits, follow-up items, and neighborhood notes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

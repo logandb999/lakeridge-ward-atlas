@@ -1,0 +1,508 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { APIProvider } from '@vis.gl/react-google-maps';
+import { Property, FilterState, UserAccount, WardRole, FollowUpItem, VisitLog } from './types';
+import { storageService, computePropertyStatus, getTodayDateString, getDaysDiffFromToday } from './services/storageService';
+import { MOCK_USERS } from './data/roles';
+import { Header } from './components/Header';
+import { MapView } from './components/MapView';
+import { GoogleMapView } from './components/GoogleMapView';
+import { MapSidebar } from './components/MapSidebar';
+import { PropertyDetail } from './components/PropertyDetail';
+import { FollowUpList } from './components/FollowUpList';
+import { PropertyDirectory } from './components/PropertyDirectory';
+import { LocalRunGuideModal } from './components/LocalRunGuideModal';
+import { AddPropertyModal } from './components/AddPropertyModal';
+import {
+  MapPin,
+  Clock,
+  BookOpen,
+  X,
+  Search,
+  Filter,
+  SlidersHorizontal,
+  ChevronDown,
+  Layers,
+  Info,
+  Plus
+} from 'lucide-react';
+
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+
+export default function App() {
+  // Primary State
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [accessToken, setAccessToken] = useState('');
+  const [sync, setSync] = useState(storageService.getSyncState());
+  const [today, setToday] = useState(getTodayDateString());
+  const downloadUnsaved = () => {
+    const url = URL.createObjectURL(new Blob([storageService.exportData()], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `atlas-unsaved-${getTodayDateString()}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'map' | 'follow_ups' | 'directory'>('map');
+  const [currentUser, setCurrentUser] = useState<UserAccount>(MOCK_USERS[0]); // Bishop Marcus Vance
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [mapMode, setMapMode] = useState<'google' | 'vector'>(GOOGLE_MAPS_API_KEY ? 'google' : 'vector');
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
+
+  // Listen for Google Maps quota exceeded events
+  useEffect(() => {
+    const handleQuota = () => setQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handleQuota);
+    return () => window.removeEventListener('gmp-quota-exceeded', handleQuota);
+  }, []);
+
+  // Filter State
+  const [filter, setFilter] = useState<FilterState>({
+    searchQuery: '',
+    status: 'all',
+    role: 'all',
+    zone: 'all',
+  });
+
+  // Load properties on initial mount
+  useEffect(() => {
+    let active = true;
+    storageService.loadPropertiesAsync().then(loaded => { if (active) setProperties(loaded); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const handleStorageUpdate = () => {
+      setProperties([...storageService.loadProperties()]);
+      setSync(storageService.getSyncState());
+    };
+    window.addEventListener('atlas-storage-update', handleStorageUpdate);
+    return () => window.removeEventListener('atlas-storage-update', handleStorageUpdate);
+  }, []);
+
+  useEffect(() => {
+    const checkDate = () => setToday(getTodayDateString());
+    const timer = window.setInterval(checkDate, 30000);
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (storageService.hasUnsavedChanges()) { event.preventDefault(); event.returnValue = ''; }
+    };
+    window.addEventListener('focus', checkDate);
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', checkDate);
+      window.removeEventListener('beforeunload', beforeUnload);
+    };
+  }, []);
+
+  // Recompute date-dependent child filters when the local calendar day changes.
+  useEffect(() => { setProperties(items => [...items]); }, [today]);
+
+  // Update filter helper
+  const handleFilterChange = (updates: Partial<FilterState>) => {
+    setFilter(prev => ({ ...prev, ...updates }));
+  };
+
+  // Follow-up & Visit Action Handlers
+  const handleAddFollowUp = (propertyId: string, item: Omit<FollowUpItem, 'id' | 'createdAt' | 'propertyId'>) => {
+    storageService.addFollowUp(propertyId, item);
+    setProperties(storageService.loadProperties());
+  };
+
+  const handleToggleFollowUp = (propertyId: string, followUpId: string) => {
+    storageService.toggleFollowUpStatus(propertyId, followUpId, currentUser.name);
+    setProperties(storageService.loadProperties());
+  };
+
+  const handleDeleteFollowUp = (propertyId: string, followUpId: string) => {
+    storageService.deleteFollowUp(propertyId, followUpId);
+    setProperties(storageService.loadProperties());
+  };
+
+  const handleAddVisitLog = (propertyId: string, log: Omit<VisitLog, 'id'>) => {
+    storageService.addVisitLog(propertyId, log);
+    setProperties(storageService.loadProperties());
+  };
+
+  const handleUpdateNotes = (propertyId: string, updates: Partial<Property>) => {
+    storageService.updatePropertyNotes(propertyId, updates as any);
+    setProperties(storageService.loadProperties());
+  };
+
+  const handleAddProperty = (data: Parameters<typeof storageService.addProperty>[0]) => {
+    const created = storageService.addProperty(data);
+    setProperties(storageService.loadProperties());
+    setSelectedPropertyId(created.id);
+  };
+
+  const handleClearAll = () => {
+    const cleared = storageService.clearAllData();
+    setProperties(cleared);
+    setSelectedPropertyId(null);
+  };
+
+  const handleLoadSampleData = () => {
+    const samples = storageService.loadSampleData();
+    setProperties(samples);
+  };
+
+  // Selected Property Object
+  const selectedProperty = useMemo(() => {
+    return properties.find(p => p.id === selectedPropertyId) || null;
+  }, [properties, selectedPropertyId]);
+
+  // Overall Counts
+  const { pendingCount, overdueCount } = useMemo(() => {
+    let pending = 0;
+    let overdue = 0;
+    properties.forEach(p => {
+      p.followUps.forEach(f => {
+        if (f.status === 'pending') {
+          pending++;
+          if (getDaysDiffFromToday(f.dueDate) < 0) {
+            overdue++;
+          }
+        }
+      });
+    });
+    return { pendingCount: pending, overdueCount: overdue };
+  }, [properties, today]);
+
+  return (
+    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['marker']}>
+      <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-hidden">
+        {/* Google Maps Quota Exceeded In-App Banner */}
+        {quotaExceeded && (
+          <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+            <span>
+              Google Maps Platform quota reached. If you are the app owner, visit{' '}
+              <a
+                href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-semibold text-amber-950 hover:text-amber-800"
+              >
+                maps developer site
+              </a>{' '}
+              for instructions to update your account.
+            </span>
+          </div>
+        )}
+
+        {/* Top Bar Header */}
+        {sync.access !== 'ready' && (
+          <form onSubmit={async event => { event.preventDefault(); if (accessToken.trim()) await storageService.setAccessToken(accessToken); }} className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/80 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+              <h1 className="text-lg font-semibold">Atlas access required</h1>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Enter the access token provided by the atlas administrator.</p>
+              <label htmlFor="atlas-token" className="mt-4 block text-sm font-medium">Access token</label>
+              <input id="atlas-token" autoFocus required type="password" value={accessToken} onChange={event => setAccessToken(event.target.value)} disabled={sync.access === 'checking'} className="mt-2 w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2" autoComplete="current-password" aria-describedby="access-message" />
+              <p id="access-message" role="status" className="mt-2 text-sm text-rose-600">{sync.message}</p>
+              <button disabled={sync.access === 'checking' || !accessToken.trim()} className="mt-3 w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50">{sync.access === 'checking' ? 'Verifying access…' : 'Continue'}</button>
+            </div>
+          </form>
+        )}
+        {sync.access === 'ready' && (
+          <div role="status" aria-live="polite" className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 text-sm dark:border-slate-800 dark:bg-slate-900 flex items-center justify-between gap-3">
+            <span>{sync.status === 'saving' ? 'Saving… Keep this page open.' : sync.status === 'loading' ? 'Loading latest records…' : sync.status === 'saved' ? 'Saved to shared database' : 'Changes have not been saved'}</span>
+            <button disabled={sync.status !== 'saved'} onClick={() => void storageService.reload()} className="underline disabled:opacity-40">Refresh records</button>
+          </div>
+        )}
+        {sync.access === 'ready' && (sync.status === 'error' || sync.status === 'conflict') && (
+          <div className="fixed inset-0 z-[110] grid place-items-center bg-slate-950/80 p-4">
+            <div role="alert" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+              <h2 className="text-lg font-semibold">{sync.status === 'conflict' ? 'Newer changes are available' : 'Could not save or connect'}</h2>
+              <p className="mt-2 text-sm">{sync.message} Your open changes remain in this tab.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {storageService.hasUnsavedChanges() && <button onClick={downloadUnsaved} className="rounded-lg border px-3 py-2">Download unsaved changes</button>}
+                {sync.status !== 'conflict' && storageService.hasUnsavedChanges() && <button onClick={() => void storageService.retrySave()} className="rounded-lg bg-blue-600 px-3 py-2 text-white">Retry save</button>}
+                <button onClick={() => {
+                  if (!storageService.hasUnsavedChanges() || window.confirm('Loading the latest records replaces unsaved changes in this tab. Download a copy first if you need to keep them. Continue?')) void storageService.reload();
+                }} className="rounded-lg border px-3 py-2">Load latest records</button>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="contents" inert={sync.access !== 'ready' || ['error', 'conflict', 'loading'].includes(sync.status)}>
+        <Header
+          currentView={currentView}
+          onViewChange={view => {
+            setCurrentView(view);
+          }}
+          currentUser={currentUser}
+          onUserChange={setCurrentUser}
+          pendingCount={pendingCount}
+          overdueCount={overdueCount}
+          totalProperties={properties.length}
+          onOpenGuide={() => setShowGuideModal(true)}
+        />
+
+        {/* Main Viewport Workspace */}
+        <main className="flex-1 relative overflow-hidden flex flex-col">
+          {/* --- View 1: Atlas Map (Primary Map-First Screen) --- */}
+          {currentView === 'map' && (
+            <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden h-full">
+              {/* Left/Center: Prominent Interactive Map Area */}
+              <div className="flex-1 relative h-full overflow-hidden flex flex-col">
+                {/* Mobile Quick Filter Header */}
+                <div className="lg:hidden p-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-10 flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={filter.searchQuery}
+                      onChange={e => handleFilterChange({ searchQuery: e.target.value })}
+                      placeholder="Search address or family..."
+                      className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+                    className={`min-h-[36px] px-2.5 py-1.5 text-xs font-medium rounded-lg border flex items-center gap-1.5 transition-colors ${
+                      filter.status !== 'all' || filter.zone !== 'all' || filter.role !== 'all'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300'
+                        : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                    aria-label="Filter Map Properties"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Filter</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowAddPropertyModal(true)}
+                    className="min-h-[36px] px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 shadow-xs transition-colors shrink-0"
+                    title="Add Residential Address"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
+
+                {/* Mobile Filter Drawer Dropdown */}
+                {mobileFilterOpen && (
+                  <div className="lg:hidden p-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 text-xs space-y-2 animate-in slide-in-from-top duration-150">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-medium">Status:</span>
+                        <select
+                          value={filter.status}
+                          onChange={e => handleFilterChange({ status: e.target.value as any })}
+                          className="w-full mt-0.5 px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        >
+                          <option value="all">All Statuses</option>
+                          <option value="overdue">Overdue Only</option>
+                          <option value="due_soon">Due This Week</option>
+                          <option value="scheduled">Scheduled</option>
+                          <option value="completed">Completed</option>
+                          <option value="no_action">In Good Standing</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] text-slate-500 font-medium">Zone:</span>
+                        <select
+                          value={filter.zone}
+                          onChange={e => handleFilterChange({ zone: e.target.value as any })}
+                          className="w-full mt-0.5 px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                        >
+                          <option value="all">All Zones</option>
+                          <option value="North Ridge">North Ridge</option>
+                          <option value="Lakeside East">Lakeside East</option>
+                          <option value="Timberline">Timberline</option>
+                          <option value="Meadowview">Meadowview</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        onClick={() => {
+                          handleFilterChange({ status: 'all', zone: 'all', role: 'all', searchQuery: '' });
+                          setMobileFilterOpen(false);
+                        }}
+                        className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      >
+                        Clear all filters
+                      </button>
+                      <button
+                        onClick={() => setMobileFilterOpen(false)}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-medium"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary Map Engine: Google Maps or Ward GIS Vector Map */}
+                {mapMode === 'google' && GOOGLE_MAPS_API_KEY ? (
+                  <GoogleMapView
+                    properties={properties}
+                    selectedPropertyId={selectedPropertyId}
+                    onSelectProperty={id => setSelectedPropertyId(id)}
+                    filter={filter}
+                    mapMode={mapMode}
+                    onToggleMapMode={() => setMapMode('vector')}
+                  />
+                ) : (
+                  <MapView
+                    properties={properties}
+                    selectedPropertyId={selectedPropertyId}
+                    onSelectProperty={id => setSelectedPropertyId(id)}
+                    filter={filter}
+                    onFilterChange={handleFilterChange}
+                    hasGoogleMaps={Boolean(GOOGLE_MAPS_API_KEY)}
+                    onToggleMapMode={() => setMapMode('google')}
+                  />
+                )}
+              </div>
+
+            {/* Desktop Side Panel: Shows Details if Property is selected, or Navigator Sidebar if none */}
+            <div className="hidden lg:block w-[400px] xl:w-[440px] h-full shrink-0">
+              {selectedProperty ? (
+                <PropertyDetail
+                  property={selectedProperty}
+                  currentRole={currentUser.role}
+                  currentUserName={currentUser.name}
+                  onClose={() => setSelectedPropertyId(null)}
+                  onAddFollowUp={handleAddFollowUp}
+                  onToggleFollowUp={handleToggleFollowUp}
+                  onDeleteFollowUp={handleDeleteFollowUp}
+                  onAddVisitLog={handleAddVisitLog}
+                  onUpdateNotes={handleUpdateNotes}
+                />
+              ) : (
+                <MapSidebar
+                  properties={properties}
+                  filter={filter}
+                  onFilterChange={handleFilterChange}
+                  onSelectProperty={id => setSelectedPropertyId(id)}
+                  onOpenAddProperty={() => setShowAddPropertyModal(true)}
+                />
+              )}
+            </div>
+
+            {/* Mobile Bottom Sheet for Selected Property Details */}
+            {selectedProperty && (
+              <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex flex-col justify-end">
+                <div
+                  className="w-full bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200 dark:border-slate-800 flex flex-col max-h-[82vh] overflow-hidden animate-in slide-in-from-bottom duration-200 pb-16"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Drag Handle */}
+                  <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-2.5 shrink-0" />
+
+                  {/* Body Content */}
+                  <div className="flex-1 overflow-y-auto">
+                    <PropertyDetail
+                      property={selectedProperty}
+                      currentRole={currentUser.role}
+                      currentUserName={currentUser.name}
+                      onClose={() => setSelectedPropertyId(null)}
+                      onAddFollowUp={handleAddFollowUp}
+                      onToggleFollowUp={handleToggleFollowUp}
+                      onDeleteFollowUp={handleDeleteFollowUp}
+                      onAddVisitLog={handleAddVisitLog}
+                      onUpdateNotes={handleUpdateNotes}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- View 2: Follow-Up List View --- */}
+        {currentView === 'follow_ups' && (
+          <FollowUpList
+            properties={properties}
+            currentRole={currentUser.role}
+            onSelectProperty={id => setSelectedPropertyId(id)}
+            onToggleFollowUp={handleToggleFollowUp}
+            onNavigateToMap={() => setCurrentView('map')}
+            onOpenAddProperty={() => setShowAddPropertyModal(true)}
+          />
+        )}
+
+        {/* --- View 3: Residential Property Directory View --- */}
+        {currentView === 'directory' && (
+          <PropertyDirectory
+            properties={properties}
+            onSelectProperty={id => setSelectedPropertyId(id)}
+            onNavigateToMap={() => setCurrentView('map')}
+            onOpenAddProperty={() => setShowAddPropertyModal(true)}
+          />
+        )}
+      </main>
+
+      {/* Mobile Fixed Bottom Navigation Tab Bar (Thumb Zone) */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-around h-16 px-2">
+        <button
+          onClick={() => setCurrentView('map')}
+          className={`flex-1 flex flex-col items-center justify-center py-1 transition-colors ${
+            currentView === 'map'
+              ? 'text-blue-600 dark:text-blue-400 font-semibold'
+              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+          }`}
+        >
+          <MapPin className="w-5 h-5 mb-1" />
+          <span className="text-[11px]">Atlas Map</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentView('follow_ups')}
+          className={`flex-1 flex flex-col items-center justify-center py-1 relative transition-colors ${
+            currentView === 'follow_ups'
+              ? 'text-blue-600 dark:text-blue-400 font-semibold'
+              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+          }`}
+        >
+          <div className="relative">
+            <Clock className="w-5 h-5 mb-1" />
+            {overdueCount > 0 && (
+              <span className="absolute -top-1 -right-2 px-1 py-0.2 min-w-[16px] text-center bg-rose-600 text-white rounded-full text-[9px] font-bold">
+                {overdueCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[11px]">Follow-Ups</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentView('directory')}
+          className={`flex-1 flex flex-col items-center justify-center py-1 transition-colors ${
+            currentView === 'directory'
+              ? 'text-blue-600 dark:text-blue-400 font-semibold'
+              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+          }`}
+        >
+          <BookOpen className="w-5 h-5 mb-1" />
+          <span className="text-[11px]">Addresses</span>
+        </button>
+      </nav>
+
+      {/* Guide & Local Setup Modal */}
+      <LocalRunGuideModal
+        isOpen={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
+        onClearAll={handleClearAll}
+        onLoadSampleData={handleLoadSampleData}
+        onDataReload={() => setProperties(storageService.loadProperties())}
+        properties={properties}
+      />
+
+      {/* Add Address Modal */}
+      <AddPropertyModal
+        isOpen={showAddPropertyModal}
+        onClose={() => setShowAddPropertyModal(false)}
+        onSubmit={handleAddProperty}
+      />
+      </div>
+      </div>
+    </APIProvider>
+  );
+}
