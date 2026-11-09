@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Property } from '../types';
 import { storageService } from '../services/storageService';
+import { HouseholdImportPanel } from './HouseholdImportPanel';
 import {
   X,
   Terminal,
   ShieldCheck,
   RefreshCw,
   Download,
-  Upload,
   Info,
   Check,
   AlertCircle
@@ -30,12 +30,10 @@ export const LocalRunGuideModal: React.FC<LocalRunGuideModalProps> = ({
   onDataReload,
   properties,
 }) => {
-  if (!isOpen) return null;
-
   const [copied, setCopied] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [sampleConfirm, setSampleConfirm] = useState(false);
-  const [importStatus, setImportStatus] = useState<string | null>(null);
+  if (!isOpen) return null;
 
   const localRunCode = `# 1. Install project dependencies
 npm install
@@ -65,27 +63,6 @@ npm run dev
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = event => {
-      const content = event.target?.result as string;
-      if (storageService.importData(content)) {
-        setImportStatus('Import queued. Check the save status before closing this page.');
-        if (onDataReload) {
-          onDataReload();
-        } else {
-          onLoadSampleData();
-        }
-      } else {
-        setImportStatus('Invalid JSON file format. Could not import.');
-      }
-    };
-    reader.readAsText(file);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <div
@@ -100,10 +77,10 @@ npm run dev
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                Prototype Guide & Local Setup
+                Data & Setup
               </h3>
               <p className="text-xs text-slate-500">
-                Lakeridge Ward Atlas · Residential Visit Coordination Prototype
+                Lakeridge Ward Atlas
               </p>
             </div>
           </div>
@@ -123,13 +100,13 @@ npm run dev
           <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200 space-y-1.5">
             <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
               <ShieldCheck className="w-4 h-4 text-amber-600" />
-              <span>Demo Prototype · Fictional Data & Residential Architecture</span>
+              <span>Private Ward Atlas</span>
             </div>
             <p className="leading-relaxed">
-              All names, addresses, and scenarios in this prototype are entirely fictional.
+              Household records are shared with the authorized leaders who can access this app.
             </p>
             <p className="leading-relaxed font-medium">
-              <strong>Core Design Rule:</strong> Properties and physical addresses are the primary records. Occupants change over time (e.g., rentals, moves). The app intentionally does <em>not</em> build permanent personal member profiles or import ecclesiastical membership records.
+              Keep household names and occupancy details current. Families sharing an address remain separate records until their occupancy has been verified.
             </p>
           </div>
 
@@ -161,15 +138,8 @@ npm run dev
               Data Management & Persistence
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-300">
-              Visits, follow-ups, and notes are saved to the shared database ({properties.length} addresses currently active). Check the save status before closing. Clearing records, loading samples, and importing replace the shared atlas for all leaders.
+              Visits, follow-ups, and notes are saved to the shared database ({properties.length} records currently active). Imports add new households and preserve existing records. Clearing records and loading samples replace the shared atlas for all leaders.
             </p>
-
-            {importStatus && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 rounded-lg text-xs flex items-center gap-2">
-                <Check className="w-4 h-4" />
-                <span>{importStatus}</span>
-              </div>
-            )}
 
             <div className="flex flex-wrap items-center gap-3">
               {/* Clear All Records Button */}
@@ -246,18 +216,8 @@ npm run dev
                 <span>Export JSON Backup</span>
               </button>
 
-              {/* Import JSON */}
-              <label className="px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer">
-                <Upload className="w-3.5 h-3.5" />
-                <span>Import JSON</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImport}
-                  className="hidden"
-                />
-              </label>
             </div>
+            <HouseholdImportPanel />
           </div>
         </div>
 

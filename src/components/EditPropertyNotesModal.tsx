@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Property, OccupantState } from '../types';
+import React, { useEffect, useState } from 'react';
+import { Property, OccupantState, HouseholdFlag, WardMembership } from '../types';
+import { HOUSEHOLD_FLAGS } from '../lib/householdFlags';
 import { X, Home, Key, FileText, Tag } from 'lucide-react';
 
 interface EditPropertyNotesModalProps {
@@ -12,6 +13,8 @@ interface EditPropertyNotesModalProps {
     accessNotes?: string;
     generalNotes?: string;
     tags: string[];
+    householdFlags: HouseholdFlag[];
+    wardMembership: WardMembership;
   }) => void;
 }
 
@@ -21,13 +24,22 @@ export const EditPropertyNotesModal: React.FC<EditPropertyNotesModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  if (!isOpen) return null;
-
   const [occupantSummary, setOccupantSummary] = useState(property.occupantSummary);
   const [occupantState, setOccupantState] = useState<OccupantState>(property.occupantState);
   const [accessNotes, setAccessNotes] = useState(property.accessNotes || '');
   const [generalNotes, setGeneralNotes] = useState(property.generalNotes || '');
   const [tagsInput, setTagsInput] = useState(property.tags.join(', '));
+  const [flags, setFlags] = useState<HouseholdFlag[]>(property.householdFlags ?? []);
+  const [wardStatus, setWardStatus] = useState<WardMembership['status']>(property.wardMembership?.status ?? 'unknown');
+  const [wardName, setWardName] = useState(property.wardMembership?.wardName ?? '');
+  useEffect(() => {
+    if (!isOpen) return;
+    setOccupantSummary(property.occupantSummary); setOccupantState(property.occupantState);
+    setAccessNotes(property.accessNotes ?? ''); setGeneralNotes(property.generalNotes ?? '');
+    setTagsInput(property.tags.join(', ')); setFlags(property.householdFlags ?? []);
+    setWardStatus(property.wardMembership?.status ?? 'unknown'); setWardName(property.wardMembership?.wardName ?? '');
+  }, [isOpen, property.id]);
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +54,8 @@ export const EditPropertyNotesModal: React.FC<EditPropertyNotesModalProps> = ({
       accessNotes: accessNotes.trim() || undefined,
       generalNotes: generalNotes.trim() || undefined,
       tags: parsedTags,
+      householdFlags: flags,
+      wardMembership: { status: wardStatus, ...(wardStatus === 'other_ward' && wardName.trim() ? { wardName: wardName.trim() } : {}) },
     });
 
     onClose();
@@ -75,6 +89,23 @@ export const EditPropertyNotesModal: React.FC<EditPropertyNotesModalProps> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+          <fieldset className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+            <legend className="text-sm font-semibold">Household flags</legend>
+            {Object.entries(HOUSEHOLD_FLAGS).map(([flag, label]) => <label key={flag} className="flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={flags.includes(flag as HouseholdFlag)} onChange={e => setFlags(current => e.target.checked ? [...current, flag as HouseholdFlag] : current.filter(f => f !== flag))} />
+              <span>{label}</span>
+            </label>)}
+          </fieldset>
+          <label className="block text-sm font-semibold">Ward affiliation
+            <select value={wardStatus} onChange={e => setWardStatus(e.target.value as WardMembership['status'])} className="mt-1 block w-full rounded-lg border p-2 dark:bg-slate-800">
+              <option value="unknown">Not yet verified</option>
+              <option value="our_ward">Member of our ward</option>
+              <option value="other_ward">Member of another ward</option>
+            </select>
+          </label>
+          {wardStatus === 'other_ward' && <label className="block text-sm font-semibold">Ward name (optional)
+            <input value={wardName} onChange={e => setWardName(e.target.value)} placeholder="e.g. Spanish ward" className="mt-1 block w-full rounded-lg border p-2 dark:bg-slate-800" />
+          </label>}
           {/* Occupant State */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">

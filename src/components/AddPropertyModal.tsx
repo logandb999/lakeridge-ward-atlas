@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PropertyCoordinates, OccupantState } from '../types';
+import { Property, PropertyCoordinates, OccupantState } from '../types';
 import { X, MapPin, Home, Key, FileText, Tag, AlertTriangle } from 'lucide-react';
 
 interface AddPropertyModalProps {
@@ -9,7 +9,7 @@ interface AddPropertyModalProps {
   onSubmit: (data: {
     address: string;
     unit?: string;
-    zone: 'North Ridge' | 'Lakeside East' | 'Timberline' | 'Meadowview';
+    zone: Property['zone'];
     parcelNumber: string;
     coordinates: PropertyCoordinates;
     occupantSummary: string;
@@ -26,11 +26,9 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   defaultCoords,
   onSubmit,
 }) => {
-  if (!isOpen) return null;
-
   const [address, setAddress] = useState('');
   const [unit, setUnit] = useState('');
-  const [zone, setZone] = useState<'North Ridge' | 'Lakeside East' | 'Timberline' | 'Meadowview'>('North Ridge');
+  const [zone, setZone] = useState<Property['zone']>('Unassigned');
   const [parcelNumber, setParcelNumber] = useState(`LR-${Math.floor(100 + Math.random() * 900)}`);
   const [lat, setLat] = useState(defaultCoords?.lat ? defaultCoords.lat.toFixed(5) : '40.3765');
   const [lng, setLng] = useState(defaultCoords?.lng ? defaultCoords.lng.toFixed(5) : '-111.7575');
@@ -40,6 +38,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [generalNotes, setGeneralNotes] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,6 +167,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
                 <option value="Lakeside East">Lakeside East</option>
                 <option value="Timberline">Timberline</option>
                 <option value="Meadowview">Meadowview</option>
+                <option value="Unassigned">Unassigned</option>
               </select>
             </div>
           </div>

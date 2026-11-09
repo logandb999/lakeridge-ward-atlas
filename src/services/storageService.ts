@@ -1,5 +1,6 @@
 import { FollowUpItem, FollowUpStatus, Property, VisitLog } from '../types';
 import { SAMPLE_FICTIONAL_PROPERTIES } from '../data/mockProperties';
+import { parsePropertyImport, planPropertyImport } from '../lib/propertyImport';
 
 
 export interface SignedInUser { id: string; email: string; name: string }
@@ -49,6 +50,7 @@ let cache: Property[] = [];
 let revision: number | null = null;
 let sync: SyncState = { access: 'checking', status: 'idle', message: '', user: null, configured: true };
 let saving = false;
+let importing = false;
 let generation = 0;
 let persistedGeneration = 0;
 function publish() { window.dispatchEvent(new Event('atlas-storage-update')); }
@@ -104,10 +106,14 @@ async function flush(): Promise<void> {
       message: error instanceof Error ? error.message : 'Save failed. Your changes are still open here. Retry to save them.' });
   } finally { saving = false; }
 }
-function save(items: Property[]): void {
+function assertCanEdit(): void {
+  if (importing) throw new Error('Wait for the household import to finish before editing.');
   if (sync.access !== 'ready' || revision === null || ['error', 'conflict', 'loading'].includes(sync.status)) {
     throw new Error('Reconnect to the shared database before editing.');
   }
+}
+function save(items: Property[]): void {
+  assertCanEdit();
   cache = items;
   generation++;
   publish();
@@ -138,6 +144,7 @@ export const storageService = {
   },
   getSyncState(): SyncState { return sync; },
   async signOut(): Promise<void> {
+    if (importing) throw new Error('Wait for the household import to finish before signing out.');
     try {
       const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin', signal: AbortSignal.timeout(20000) });
       if (!response.ok) throw new Error('Could not sign out');
@@ -145,8 +152,8 @@ export const storageService = {
       setSync({ access: 'required', status: 'idle', message: '', user: null });
     } catch { setSync({ status: 'error', message: 'Could not sign out. Please try again.' }); }
   },
-  async reload(): Promise<Property[]> { return load(); },
-  async retrySave(): Promise<void> { await flush(); },
+  async reload(): Promise<Property[]> { if (importing) throw new Error('Wait for the household import to finish before reloading.'); return load(); },
+  async retrySave(): Promise<void> { if (importing) return; await flush(); },
   hasUnsavedChanges(): boolean { return generation > persistedGeneration; },
   saveProperties(properties: Property[]): void { save(properties); },
   clearAllData(): Property[] { save([]); return []; },
@@ -157,26 +164,59 @@ export const storageService = {
   },
   deleteProperty(propertyId: string): void { save(cache.filter(p => p.id !== propertyId)); },
   exportData(): string { return JSON.stringify(cache, null, 2); },
-  importData(content: string): boolean {
-    try { const parsed = JSON.parse(content); if (Array.isArray(parsed) && parsed.every(p => p && typeof p.id === 'string' && typeof p.address === 'string')) { save(parsed); return true; } } catch (error) { console.error('Import failed', error); }
-    return false;
+  previewImport(content: string) {
+    if (sync.access !== 'ready' || sync.status !== 'saved' || generation !== persistedGeneration || importing || saving) {
+      throw new Error('Wait for all changes to save, then reload if needed before importing.');
+    }
+    return { ...planPropertyImport(cache, parsePropertyImport(content)), revision: revision! };
+  },
+  async importData(content: string, expectedRevision: number) {
+    const plan = this.previewImport(content);
+    if (plan.revision !== expectedRevision) throw new Error('Records changed after the preview. Preview the file again.');
+    if (plan.conflicts.length) throw new Error('Resolve conflicting records before importing.');
+    importing = true;
+    setSync({ status: 'saving', message: 'Importing households…' });
+    try {
+      const response = await fetch('/api/import', {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revision, properties: parsePropertyImport(content) }), signal: AbortSignal.timeout(20000),
+      });
+      const result = await response.json();
+      if (!response.ok) throw Object.assign(new Error(result.error || 'Import failed. Reload before retrying.'), { status: response.status });
+      if (!Array.isArray(result.properties) || !Number.isSafeInteger(result.revision) ||
+        !Number.isSafeInteger(result.added) || result.added < 0 || !Number.isSafeInteger(result.skipped) || result.skipped < 0 ||
+        (result.added > 0 && (typeof result.backupId !== 'string' || !result.backupId))) throw new Error('Import response could not be verified. Reload the atlas.');
+      cache = result.properties;
+      revision = result.revision;
+      setSync({ status: 'saved', message: '' });
+      return result as { added: number; skipped: number; backupId: string | null };
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      setSync({ ...(status === 401 ? { access: 'required' as const, user: null } : {}), status: status === 409 ? 'conflict' : 'error',
+        message: error instanceof Error ? error.message : 'Import could not be verified. Reload before retrying.' });
+      throw error;
+    } finally { importing = false; }
   },
   getPropertyById(propertyId: string): Property | undefined { return cache.find(p => p.id === propertyId); },
   addFollowUp(propertyId: string, item: Omit<FollowUpItem, 'id' | 'createdAt' | 'propertyId'>): FollowUpItem {
+    assertCanEdit();
     const p = cache.find(x => x.id === propertyId); if (!p) throw new Error(`Property ${propertyId} not found`);
     const result = { ...item, id: id('fu'), propertyId, createdAt: new Date().toISOString() }; p.followUps.unshift(result); p.updatedAt = new Date().toISOString(); save([...cache]); return result;
   },
   toggleFollowUpStatus(propertyId: string, followUpId: string, actor: string): FollowUpItem | null {
+    assertCanEdit();
     const p = cache.find(x => x.id === propertyId); const f = p?.followUps.find(x => x.id === followUpId); if (!p || !f) return null;
     if (f.status === 'completed') { f.status = 'pending'; delete f.completedAt; delete f.completedBy; } else { f.status = 'completed'; f.completedAt = new Date().toISOString(); f.completedBy = actor; }
     p.updatedAt = new Date().toISOString(); save([...cache]); return f;
   },
-  deleteFollowUp(propertyId: string, followUpId: string): void { const p = cache.find(x => x.id === propertyId); if (!p) return; p.followUps = p.followUps.filter(f => f.id !== followUpId); p.updatedAt = new Date().toISOString(); save([...cache]); },
+  deleteFollowUp(propertyId: string, followUpId: string): void { assertCanEdit(); const p = cache.find(x => x.id === propertyId); if (!p) return; p.followUps = p.followUps.filter(f => f.id !== followUpId); p.updatedAt = new Date().toISOString(); save([...cache]); },
   addVisitLog(propertyId: string, log: Omit<VisitLog, 'id'>): VisitLog {
+    assertCanEdit();
     const p = cache.find(x => x.id === propertyId); if (!p) throw new Error(`Property ${propertyId} not found`);
     const result = { ...log, id: id('vl') }; p.visitLogs.unshift(result); p.updatedAt = new Date().toISOString(); save([...cache]); return result;
   },
-  updatePropertyNotes(propertyId: string, updates: Partial<Pick<Property, 'occupantSummary' | 'occupantState' | 'accessNotes' | 'generalNotes' | 'tags'>>): Property | null {
+  updatePropertyNotes(propertyId: string, updates: Partial<Pick<Property, 'occupantSummary' | 'occupantState' | 'accessNotes' | 'generalNotes' | 'tags' | 'householdFlags' | 'wardMembership'>>): Property | null {
+    assertCanEdit();
     const index = cache.findIndex(x => x.id === propertyId); if (index < 0) return null;
     cache[index] = { ...cache[index], ...updates, updatedAt: new Date().toISOString() }; save([...cache]); return cache[index];
   },

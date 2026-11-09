@@ -1,4 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { HouseholdFlags } from './HouseholdFlags';
+import { householdLabels } from '../lib/householdFlags';
+import type { LocationReviewRecord, ReviewCoordinates } from '../lib/locationReview';
 import {
   Map,
   AdvancedMarker,
@@ -28,10 +31,26 @@ interface GoogleMapViewProps {
   filter: FilterState;
   onToggleMapMode?: () => void;
   mapMode: 'google' | 'vector';
+  locationReview?: {
+    locations: LocationReviewRecord[];
+    selectedId: string;
+    draft: ReviewCoordinates | null;
+    onSelect: (id: string) => void;
+    onMove: (point: ReviewCoordinates) => void;
+  };
 }
 
 // 40°16'47.1"N 111°41'30.3"W
 const WARD_CENTER = { lat: 40.27975, lng: -111.69175 };
+
+function ReviewCamera({ point }: { point: ReviewCoordinates | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || !point) return;
+    map.panTo(point); map.setZoom(19);
+  }, [map, point]);
+  return null;
+}
 
 // Controller to smoothly pan the Google Map when selectedProperty or userLocation changes
 function MapCameraController({
@@ -74,6 +93,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
   filter,
   onToggleMapMode,
   mapMode,
+  locationReview,
 }) => {
   const [hoveredProperty, setHoveredProperty] = useState<Property | null>(null);
   const [showLegend, setShowLegend] = useState(false);
@@ -149,7 +169,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
       const addrMatch = property.address.toLowerCase().includes(q);
       const unitMatch = property.unit?.toLowerCase().includes(q);
       const occupantMatch = property.occupantSummary.toLowerCase().includes(q);
-      const tagMatch = property.tags.some(t => t.toLowerCase().includes(q));
+      const tagMatch = [...property.tags, ...householdLabels(property)].some(t => t.toLowerCase().includes(q));
       if (!addrMatch && !unitMatch && !occupantMatch && !tagMatch) return false;
     }
 
@@ -173,6 +193,8 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         mapId="DEMO_MAP_ID"
         defaultCenter={WARD_CENTER}
         defaultZoom={15}
+        defaultMapTypeId={locationReview ? 'hybrid' : 'roadmap'}
+        onClick={event => { if (locationReview?.selectedId && event.detail.latLng) locationReview.onMove(event.detail.latLng); }}
         minZoom={12}
         maxZoom={20}
         gestureHandling="greedy"
@@ -187,6 +209,18 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
       >
         <MapCameraController selectedProperty={selectedProperty} centerTarget={centerTarget} />
+        {locationReview && <>
+          <ReviewCamera point={locationReview.draft} />
+          {locationReview.locations.filter(r => r.coordinates && Date.parse(r.expiresAt) > Date.now()).map(r => (
+            <AdvancedMarker key={r.id} position={r.id === locationReview.selectedId && locationReview.draft ? locationReview.draft : r.coordinates!}
+              title={`${r.address} — ${r.status === 'confirmed' ? 'Confirmed' : 'Approximate'}`}
+              draggable={r.id === locationReview.selectedId}
+              onClick={() => locationReview.onSelect(r.id)}
+              onDragEnd={event => { if (event.latLng) locationReview.onMove({ lat: event.latLng.lat(), lng: event.latLng.lng() }); }}>
+              <Pin background={r.status === 'confirmed' ? '#059669' : '#d97706'} borderColor={r.id === locationReview.selectedId ? '#2563eb' : '#ffffff'} glyphColor="#ffffff" />
+            </AdvancedMarker>
+          ))}
+        </>}
 
         {/* User Current Location Marker */}
         {userLocation && (
@@ -286,6 +320,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
               <p className="text-slate-600 text-[11px] line-clamp-2 mb-1.5">
                 {selectedProperty.occupantSummary}
               </p>
+              <HouseholdFlags property={selectedProperty} />
               {selectedProperty.accessNotes && (
                 <p className="text-[10px] text-amber-700 italic line-clamp-1 mb-1">
                   Access: {selectedProperty.accessNotes}
@@ -315,11 +350,11 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 px-3.5 py-2 flex items-center gap-2.5 text-xs">
           <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Google Maps Live</span>
+            <span>{locationReview ? 'Location Review' : 'Google Maps Live'}</span>
           </div>
           <span className="text-slate-300 dark:text-slate-700">|</span>
           <span className="text-slate-600 dark:text-slate-400">
-            <strong className="text-slate-900 dark:text-white tabular-nums">{matchStats.matching}</strong> of {matchStats.total} addresses shown
+            {locationReview ? `${locationReview.locations.length} review records` : <><strong className="text-slate-900 dark:text-white tabular-nums">{matchStats.matching}</strong> of {matchStats.total} addresses shown</>}
           </span>
         </div>
       </div>

@@ -92,13 +92,13 @@ Deployment smoke check: sign in with the authorized Google account, add a fictio
 
 1. Use a dedicated **Lakeridge Ward Atlas** Google Cloud project and OAuth client, separate from Bullock OS. Configure Google Auth Platform branding and audience for the app. If the app is in Testing, add the authorized email as a test user.
 2. Create an OAuth client with application type **Web application**. Add this exact authorized redirect URI:
-   `https://lakeridge-ward-atlas-bullock-os.vercel.app/api/auth/callback`
+   `https://lakeridge-ward-atlas.vercel.app/api/auth/callback`
 3. Set these **server-side** environment variables in Vercel Production:
    - `GOOGLE_CLIENT_ID`: the web client's ID.
    - `GOOGLE_CLIENT_SECRET`: the web client's secret.
    - `AUTH_SECRET`: a random session-signing value at least 32 characters long. Generate locally with `openssl rand -hex 32` and enter it privately.
    - `ATLAS_ALLOWED_EMAIL`: exactly one Google email address. Comparison is case-insensitive; aliases and other emails are not implicitly authorized.
-   - `ATLAS_APP_URL`: `https://lakeridge-ward-atlas-bullock-os.vercel.app`.
+   - `ATLAS_APP_URL`: `https://lakeridge-ward-atlas.vercel.app`.
    - Keep the existing `DATABASE_URL` and optional map key.
 4. Deploy after configuring these values. Missing settings fail closed. No database migration is needed for this authentication change. The old `ATLAS_ACCESS_TOKEN` is unused and can be removed from Vercel.
 
@@ -107,6 +107,48 @@ For local full-stack development, use separate Development values in `.env.local
 The server uses Google's authorization-code flow with PKCE, a signed 10-minute browser-bound state/nonce cookie, and server-side ID-token verification. Only `openid`, `email`, and `profile` scopes are requested; no Google data API access or refresh token is retained. Sessions expire after eight hours. Session cookies use HttpOnly and SameSite=Lax, plus Secure and the `__Host-` prefix on HTTPS. Writes and logout require the configured origin. Changing the allowed email revokes the old email's access on the next request; rotating `AUTH_SECRET` invalidates all sessions.
 
 Vercel deployment protection is separate from app sign-in. Keep it configured as intended; Google login does not change that setting. If the public domain changes, update both `ATLAS_APP_URL` and the Google redirect URI before redeploying.
+
+## Household flags and safe imports
+
+Household details support editable residency, apartment, address, shared-occupancy, reported-move, and **Do not contact** flags. The directory can filter these flags and “Member of another ward.” Ward affiliation is explicit user-entered information, with an optional ward name; do not infer it from a household's language or name. Existing records default to unverified affiliation. New addresses can use the **Unassigned** zone until real ward zones are defined.
+
+Use **Addresses → Import households** (also available in Data & Setup). Select a JSON array of complete atlas `Property` records with finite map coordinates. The private LCR review JSON is an intermediate artifact and cannot be imported directly. Every imported record needs a persistent ID; repeated sources should also preserve `importIdentity: { source, recordId }` across exports. Keep separate household identities at shared addresses. Import identity is never inferred from address alone.
+
+The preview lists additions, existing records, and conflicts. Imports append new records only. Re-imported records are skipped; changed household identities or additional flags on existing records require manual review. Existing notes, contact restrictions, visits, follow-ups, and ward affiliation are never overwritten by an import. The server repeats validation and comparison against the loaded revision, so a stale preview cannot overwrite another save. The legacy replace-all import has been removed.
+
+**Before deploying this feature**, apply `npm run db:migrate` against the production database to create `atlas_import_backups`. Each import that adds households writes a database snapshot and updates the atlas in one SQL statement. A backup failure prevents the import; an import containing only existing records does not write or increment the revision. Backups contain the prior atlas JSON and revision for deliberate administrator recovery, with no public backup endpoint. Existing export-to-JSON backups remain available. Production migrations and a live import have not been run as part of local implementation.
+
+Source household lists and review decisions live under `.private/`, excluded by both `.gitignore` and `.vercelignore`. Never put real source lists into `src/`, `public/`, tests, or documentation. This feature does not geocode addresses or consume additional Maps requests.
+
+### Preparing household map locations
+
+`npm run locations:prepare` creates a private address-only lookup queue and location review from the reviewed import preview. It includes explicitly approved households and unflagged households, excludes held records, and refuses undecided flagged records. Use `-- --folder=/absolute/private/review/folder` to select another review batch.
+
+`npm run locations:prepare -- --fetch` downloads matching public [Utah County address points](https://maps.utahcounty.gov/arcgis/rest/services/Reference/Reference_QueryTask/MapServer/0). Queries contain city names and street numbers only; no household names, contact details, membership information, or Google keys are transmitted. Results are cached in the private review folder. No Google geocoding calls are made.
+
+Matching requires exact normalized street and city, valid coordinates, and an unambiguous address/unit point. A requested unit that resolves only to a building is labeled `building_only`; ambiguous or absent matches remain `needs_review`. This checks source address locations, not residency or ward-boundary membership. Network failures leave the queue and review intact, exit unsuccessfully, and never generate estimated coordinates. The location review is not itself an importable atlas file.
+
+### Google Geocoding batch from Terminal
+
+After a successful single-address test, run `npm run geocode:households -- --dry-run` to check the batch size without API requests. Run `npm run geocode:households` to geocode the prepared building list. It reads only `GOOGLE_MAPS_GEOCODING_API_KEY` from `.env.local`; this server key must be restricted to Geocoding API and the Terminal caller's public IP. `--limit=5` limits a trial run to five new requests; the default hard ceiling is 120 requests per invocation. No names, membership details, or unit numbers are sent to Google.
+
+The script saves `.private/ward-import-2026-11-08/google-geocoding-results.json` after every response and generates `google-location-review.md` with source household IDs, addresses, match statuses, and review reasons. Rerunning resumes using unexpired results. There are no automatic retries; access, quota, and connection failures stop the batch. Results with changed streets/cities, partial matches, multiple matches, or approximate locations remain flagged. Exact rooftop matches identify a building, not an apartment or the occupants.
+
+Use `npm run geocode:households -- --recheck-review` to recheck previously flagged records against the current assessment version. It leaves unexpired accepted matches alone and checkpoints each recheck, including records that still need review, so interrupted runs resume without repeating completed checks. `--dry-run` reports the number of required requests without calls. `--report-only` regenerates the review without lookups. Review reports include returned street names and precision when available. The only automatically recognized omitted-direction labels are Orem's E 1000 S / 1000 S and S 50 E / 50 E variants, with identical house numbers, matching city/state/country, a single non-partial rooftop result, and coordinates within narrow expected corridors. These corridors are not ward boundaries. Other direction changes and road-type differences remain flagged.
+
+The cache retains input addresses, place IDs, assessed match statuses, and coordinates with 29-day expiration timestamps. It does not save full Google responses or API keys. Running it removes expired coordinates before fetching replacements. This command does not install a local scheduled cleanup job: the local cache must be refreshed or deleted within Google's standard 30-day caching period. The production private-review queue has separate scheduled cleanup and displays only on Google Maps; general household import of Google coordinates remains deferred until its expiry/refresh and backup-retention handling is implemented. Do not assume the per-user permanent-storage exception applies across ward leaders. See [Google's Geocoding terms](https://cloud.google.com/maps-platform/terms/maps-service-terms#6.-geocoding-api) and [Geocoding policies](https://developers.google.com/maps/documentation/geocoding/policies). The batch does not write to the shared database or deploy the app.
+
+## Private location review
+
+Only the verified Google session for `loganb999@gmail.com` can use **Review approximate locations (private)**. This is enforced independently in `GET`, `POST`, and `PATCH /api/location-review`; changing the general atlas allowlist later does not grant location-review access. Review payloads and source household lists are never bundled into browser assets. Both API reads and writes use no-store responses, and writes require the app's configured origin.
+
+Run `npm run locations:review-queue` locally to prepare `.private/ward-import-2026-11-08/location-review-upload.json`. The manifest contains still-valid interpolated results that match a reviewed address, including explicit user corrections to the exact returned street/city. Superseded addresses no longer used by any household are excluded. After deployment, sign in as the reviewer and open the private review map. **Load prepared review queue** also accepts this JSON if it was not staged during production setup. Uploads add new review records without replacing previous confirmations. The queue is separate from `atlas_state` and does not import household records.
+
+Select a record in **Approximate — needs review**, inspect satellite imagery, drag the selected marker or click the map to adjust it, and click **Confirm this building location** to save the position and optional note. **Confirmed** shows completed reviews. Saves compare the loaded row revision, and the server records the authenticated reviewer and time. Expired coordinates cannot be confirmed; API reads remove expired coordinate fields from review records and the map excludes them. Confirmation does not extend the original coordinate-cache deadline. A daily Vercel cron calls `/api/location-review?cleanup=1` at `0 8 * * *` with `CRON_SECRET`; requests without the matching secret are denied. The 29-day cache limit leaves a day for the daily cleanup before the standard 30-day deadline. Monitor cron failures; cleanup does not fetch replacements.
+
+### Production release preparation
+
+Before pushing a release that includes the review tools, run `npm run production:prepare` from a network-capable Terminal. It loads `.env.production.local`, checks the canonical production URL and reviewer, creates a local random `CRON_SECRET` if needed, and saves it to Vercel Production as a sensitive variable. It then runs the additive database migration and stages the prepared review queue without changing `atlas_state`. Existing review confirmations are preserved. Credentials and household records are not printed. Check for `productionSetupComplete: true` before pushing `main`; the subsequent Vercel build picks up the new secret and cron configuration.
 
 ## Shared monthly Google Maps allowance
 

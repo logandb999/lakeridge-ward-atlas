@@ -10,6 +10,8 @@ import { FollowUpList } from './components/FollowUpList';
 import { PropertyDirectory } from './components/PropertyDirectory';
 import { LocalRunGuideModal } from './components/LocalRunGuideModal';
 import { AddPropertyModal } from './components/AddPropertyModal';
+import { LocationReview } from './components/LocationReview';
+import { canReviewLocations } from './lib/locationReview';
 import {
   MapPin,
   Clock,
@@ -41,6 +43,7 @@ export default function App() {
   };
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'map' | 'follow_ups' | 'directory'>('map');
+  const [reviewLocations, setReviewLocations] = useState(false);
   const currentUser: UserAccount = {
     id: sync.user?.id ?? '', name: sync.user?.name ?? '', role: 'all', roleTitle: 'Administrator',
     avatarInitials: (sync.user?.name ?? '').split(' ').filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase(),
@@ -250,6 +253,7 @@ export default function App() {
           currentView={currentView}
           onViewChange={view => {
             setCurrentView(view);
+            setReviewLocations(false);
           }}
           currentUser={currentUser}
           pendingCount={pendingCount}
@@ -258,10 +262,16 @@ export default function App() {
           onOpenGuide={() => setShowGuideModal(true)}
         />
 
+        {canReviewLocations(sync.user) && <div className="border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+          <button className="text-sm font-semibold text-blue-600" onClick={() => { setCurrentView('map'); setReviewLocations(value => !value); }}>
+            {reviewLocations ? 'Back to ward map' : 'Review approximate locations (private)'}
+          </button>
+        </div>}
         {/* Main Viewport Workspace */}
         <main className="flex-1 relative overflow-hidden flex flex-col">
           {/* --- View 1: Atlas Map (Primary Map-First Screen) --- */}
-          {currentView === 'map' && (
+          {currentView === 'map' && reviewLocations && canReviewLocations(sync.user) && <LocationReview key={sync.user!.email} apiKey={GOOGLE_MAPS_API_KEY} email={sync.user!.email} />}
+          {currentView === 'map' && !reviewLocations && (
             <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden h-full">
               {/* Left/Center: Prominent Interactive Map Area */}
               <div className="flex-1 relative h-full overflow-hidden flex flex-col">
@@ -329,6 +339,7 @@ export default function App() {
                           className="w-full mt-0.5 px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                         >
                           <option value="all">All Zones</option>
+                          <option value="Unassigned">Unassigned</option>
                           <option value="North Ridge">North Ridge</option>
                           <option value="Lakeside East">Lakeside East</option>
                           <option value="Timberline">Timberline</option>

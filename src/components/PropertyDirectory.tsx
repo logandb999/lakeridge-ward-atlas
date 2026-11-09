@@ -2,6 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { Property, FilterState, WardRole } from '../types';
 import { computePropertyStatus, getStatusTheme, formatDueDateLabel } from '../services/storageService';
 import { getRoleLabel } from '../data/roles';
+import { HouseholdFlags } from './HouseholdFlags';
+import { HOUSEHOLD_FLAGS, householdLabels } from '../lib/householdFlags';
+import { HouseholdImportPanel } from './HouseholdImportPanel';
 import {
   Search,
   MapPin,
@@ -29,11 +32,15 @@ export const PropertyDirectory: React.FC<PropertyDirectoryProps> = ({
   onOpenAddProperty,
 }) => {
   const [search, setSearch] = useState('');
-  const [zoneFilter, setZoneFilter] = useState<'all' | 'North Ridge' | 'Lakeside East' | 'Timberline' | 'Meadowview'>('all');
+  const [zoneFilter, setZoneFilter] = useState<FilterState['zone']>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [flagFilter, setFlagFilter] = useState('all');
+  const [showImport, setShowImport] = useState(false);
 
   const filteredProperties = useMemo(() => {
     return properties.filter(p => {
+      if (flagFilter === 'other_ward' && p.wardMembership?.status !== 'other_ward') return false;
+      if (flagFilter !== 'all' && flagFilter !== 'other_ward' && !p.householdFlags?.some(f => f === flagFilter)) return false;
       // Zone filter
       if (zoneFilter !== 'all' && p.zone !== zoneFilter) return false;
 
@@ -48,7 +55,7 @@ export const PropertyDirectory: React.FC<PropertyDirectoryProps> = ({
         const matchUnit = p.unit?.toLowerCase().includes(q);
         const matchOccupant = p.occupantSummary.toLowerCase().includes(q);
         const matchNotes = p.generalNotes?.toLowerCase().includes(q) || p.accessNotes?.toLowerCase().includes(q);
-        const matchTags = p.tags.some(t => t.toLowerCase().includes(q));
+        const matchTags = [...p.tags, ...householdLabels(p)].some(t => t.toLowerCase().includes(q));
         if (!matchAddress && !matchUnit && !matchOccupant && !matchNotes && !matchTags) {
           return false;
         }
@@ -56,7 +63,7 @@ export const PropertyDirectory: React.FC<PropertyDirectoryProps> = ({
 
       return true;
     });
-  }, [properties, search, zoneFilter, statusFilter]);
+  }, [properties, search, zoneFilter, statusFilter, flagFilter]);
 
   const handleSelect = (propertyId: string) => {
     onSelectProperty(propertyId);
@@ -78,6 +85,7 @@ export const PropertyDirectory: React.FC<PropertyDirectoryProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            <button onClick={() => setShowImport(true)} className="shrink-0 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold dark:border-slate-700">Import households</button>
             <div className="relative flex-1 sm:w-80">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -101,6 +109,11 @@ export const PropertyDirectory: React.FC<PropertyDirectoryProps> = ({
 
         {/* Filter dropdowns */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <label className="text-xs">Household flag: <select value={flagFilter} onChange={e => setFlagFilter(e.target.value)} className="rounded-lg border p-1.5 dark:bg-slate-800">
+            <option value="all">All households</option>
+            {Object.entries(HOUSEHOLD_FLAGS).map(([flag, label]) => <option key={flag} value={flag}>{label}</option>)}
+            <option value="other_ward">Member of another ward</option>
+          </select></label>
           {/* Zone Selector */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
             <span className="font-medium text-slate-500">Zone:</span>
@@ -109,7 +122,8 @@ export const PropertyDirectory: React.FC<PropertyDirectoryProps> = ({
               onChange={e => setZoneFilter(e.target.value as any)}
               className="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">All Zones (4)</option>
+              <option value="all">All Zones</option>
+              <option value="Unassigned">Unassigned</option>
               <option value="North Ridge">North Ridge</option>
               <option value="Lakeside East">Lakeside East</option>
               <option value="Timberline">Timberline</option>
@@ -140,6 +154,12 @@ export const PropertyDirectory: React.FC<PropertyDirectoryProps> = ({
         </div>
       </div>
 
+      {showImport && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+        <div role="dialog" aria-modal="true" aria-label="Import households" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 dark:bg-slate-900">
+          <button onClick={() => setShowImport(false)} className="mb-3 block ml-auto rounded-lg border px-3 py-1 text-sm">Close</button>
+          <HouseholdImportPanel />
+        </div>
+      </div>}
       {/* Directory Grid */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {filteredProperties.length === 0 ? (
@@ -208,6 +228,7 @@ export const PropertyDirectory: React.FC<PropertyDirectoryProps> = ({
                     <span className="line-clamp-2">{property.occupantSummary}</span>
                   </div>
 
+                  <HouseholdFlags property={property} />
                   {/* Access note if any */}
                   {property.accessNotes && (
                     <div className="mt-2 flex items-start gap-1.5 text-xs text-slate-500">

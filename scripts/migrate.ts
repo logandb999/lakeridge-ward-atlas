@@ -21,4 +21,15 @@ await sql`CREATE TABLE IF NOT EXISTS atlas_map_usage (
   period text PRIMARY KEY CHECK (period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
   loads integer NOT NULL CHECK (loads >= 0 AND loads <= 9500)
 )`;
+await sql`CREATE TABLE IF NOT EXISTS atlas_import_backups (
+  id text PRIMARY KEY,
+  revision integer NOT NULL,
+  data jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`;
+await sql`CREATE TABLE IF NOT EXISTS atlas_location_review (
+  id text PRIMARY KEY,
+  revision integer NOT NULL DEFAULT 0,
+  data jsonb NOT NULL
+)`;
 console.log('Atlas database schema is ready.');

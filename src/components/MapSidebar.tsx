@@ -135,6 +135,7 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
               className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate"
             >
               <option value="all">All Zones</option>
+              <option value="Unassigned">Unassigned</option>
               <option value="North Ridge">North Ridge</option>
               <option value="Lakeside East">Lakeside East</option>
               <option value="Timberline">Timberline</option>

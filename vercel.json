@@ -1,4 +1,5 @@
 {
+  "crons": [{ "path": "/api/location-review?cleanup=1", "schedule": "0 8 * * *" }],
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 10

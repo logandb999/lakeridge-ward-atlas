@@ -10,7 +10,12 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "locations:prepare": "tsx scripts/prepare-household-locations.ts",
+    "geocode:households": "tsx scripts/geocode-households.ts",
+    "geocode:review": "node --import tsx scripts/inspect-geocoding-review.ts",
+    "locations:review-queue": "node --import tsx scripts/prepare-location-review.ts",
+    "production:prepare": "node --env-file=.env.production.local --import tsx scripts/prepare-production.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

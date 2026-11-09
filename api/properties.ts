@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { requireSession } from '../src/server/auth.js';
+import { isPropertyRecord } from '../src/lib/propertyImport.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
@@ -15,11 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (req.method === 'PUT') {
       const { properties, revision } = req.body ?? {};
-      if (!Number.isSafeInteger(revision) || revision < 0 || !Array.isArray(properties) || properties.some(item =>
-        !item || typeof item.id !== 'string' || typeof item.address !== 'string' ||
-        !Array.isArray(item.followUps) || !Array.isArray(item.visitLogs) ||
-        !Array.isArray(item.tags) || !item.coordinates
-      ) || new Set(properties.map(item => item.id)).size !== properties.length) {
+      if (!Number.isSafeInteger(revision) || revision < 0 || !Array.isArray(properties) || properties.some(item => !isPropertyRecord(item)) || new Set(properties.map(item => item.id)).size !== properties.length) {
         return res.status(400).json({ error: 'Expected property records and their loaded revision.' });
       }
       // Compare and update in one statement: concurrent requests cannot overwrite a newer revision.

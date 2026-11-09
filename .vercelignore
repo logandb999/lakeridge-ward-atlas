@@ -1,0 +1,10 @@
+.private/
+.env*
+!.env.example
+.git/
+node_modules/
+.vercel/
+dist/
+.gmp_cache/
+coverage/
+*.log

@@ -59,6 +59,12 @@ export interface FollowUpItem {
 
 export type OccupantState = 'occupied' | 'new_move_in' | 'vacant' | 'transient_rental';
 
+export type HouseholdFlag = 'verify_residency' | 'apartment_needed' | 'verify_address' | 'shared_address' | 'reported_moved' | 'do_not_contact' | 'outside_ward';
+export interface WardMembership {
+  status: 'unknown' | 'our_ward' | 'other_ward';
+  wardName?: string;
+}
+
 export interface PropertyCoordinates {
   x: number; // 0 - 1000 map svg coordinates
   y: number; // 0 - 800 map svg coordinates
@@ -70,7 +76,7 @@ export interface Property {
   id: string;
   address: string;
   unit?: string;
-  zone: 'North Ridge' | 'Lakeside East' | 'Timberline' | 'Meadowview';
+  zone: 'Unassigned' | 'North Ridge' | 'Lakeside East' | 'Timberline' | 'Meadowview';
   parcelNumber: string;
   coordinates: PropertyCoordinates;
   occupantSummary: string;
@@ -78,6 +84,9 @@ export interface Property {
   accessNotes?: string;
   generalNotes?: string;
   tags: string[];
+  householdFlags?: HouseholdFlag[];
+  wardMembership?: WardMembership;
+  importIdentity?: { source: string; recordId: string };
   followUps: FollowUpItem[];
   visitLogs: VisitLog[];
   updatedAt: string;
@@ -87,5 +96,5 @@ export interface FilterState {
   searchQuery: string;
   status: 'all' | FollowUpStatus;
   role: WardRole;
-  zone: 'all' | 'North Ridge' | 'Lakeside East' | 'Timberline' | 'Meadowview';
+  zone: 'all' | Property['zone'];
 }

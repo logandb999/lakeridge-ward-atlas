@@ -5,6 +5,7 @@ import { getRoleLabel, getRoleColor } from '../data/roles';
 import { AddFollowUpModal } from './AddFollowUpModal';
 import { LogVisitModal } from './LogVisitModal';
 import { EditPropertyNotesModal } from './EditPropertyNotesModal';
+import { HouseholdFlags } from './HouseholdFlags';
 import {
   X,
   Plus,
@@ -95,6 +96,7 @@ export const PropertyDetail: React.FC<PropertyDetailProps> = ({
           </button>
         </div>
 
+        <HouseholdFlags property={property} />
         {/* Quick Action Ribbon */}
         <div className="mt-4 flex items-center gap-2">
           <button
