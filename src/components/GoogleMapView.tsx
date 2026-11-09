@@ -30,7 +30,8 @@ interface GoogleMapViewProps {
   mapMode: 'google' | 'vector';
 }
 
-const WARD_CENTER = { lat: 40.3765, lng: -111.7575 };
+// 40°16'47.1"N 111°41'30.3"W
+const WARD_CENTER = { lat: 40.27975, lng: -111.69175 };
 
 // Controller to smoothly pan the Google Map when selectedProperty or userLocation changes
 function MapCameraController({
@@ -56,12 +57,12 @@ function MapCameraController({
 
   // If explicit centerTarget is given (user location or ward center)
   useEffect(() => {
-    if (!map || !centerTarget || selectedProperty) return;
+    if (!map || !centerTarget) return;
     map.panTo({ lat: centerTarget.lat, lng: centerTarget.lng });
     if (centerTarget.zoom) {
       map.setZoom(centerTarget.zoom);
     }
-  }, [map, centerTarget, selectedProperty]);
+  }, [map, centerTarget]);
 
   return null;
 }
@@ -108,8 +109,12 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         setIsLocating(false);
         console.warn('Geolocation request did not resolve:', error.message);
         if (!isInitial) {
-          setLocationToast('Unable to acquire location. Please verify browser location permissions.');
-          setTimeout(() => setLocationToast(null), 4000);
+          setLocationToast(error.code === 1
+            ? 'Location access is blocked. Allow location for this website in your browser settings and enable Location Services on your device.'
+            : error.code === 3
+              ? 'Finding your location timed out. Check that Location Services is enabled, then try again.'
+              : 'Your device could not determine its location. Check Location Services and your connection, then try again.');
+          setTimeout(() => setLocationToast(null), 10000);
         }
       },
       {
@@ -119,11 +124,6 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
       }
     );
   };
-
-  // Automatically request and center on user location on initial app open
-  useEffect(() => {
-    handleRequestLocation(true);
-  }, []);
 
   // Check filter match
   const matchesFilter = (property: Property): boolean => {
@@ -171,7 +171,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
       {/* Google Maps Container */}
       <Map
         mapId="DEMO_MAP_ID"
-        defaultCenter={{ lat: 40.3765, lng: -111.7575 }}
+        defaultCenter={WARD_CENTER}
         defaultZoom={15}
         minZoom={12}
         maxZoom={20}
