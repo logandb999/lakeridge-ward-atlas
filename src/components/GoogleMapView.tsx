@@ -193,7 +193,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         mapId="DEMO_MAP_ID"
         defaultCenter={WARD_CENTER}
         defaultZoom={15}
-        defaultMapTypeId={locationReview ? 'hybrid' : 'roadmap'}
+        mapTypeId={locationReview ? 'hybrid' : 'roadmap'}
         onClick={event => { if (locationReview?.selectedId && event.detail.latLng) locationReview.onMove(event.detail.latLng); }}
         minZoom={12}
         maxZoom={20}
