@@ -4,10 +4,11 @@ import { getMapUsagePeriod, type MapLoadAllowance } from '../lib/mapUsage';
 import { MapLoadError, requestMapLoad } from '../services/mapLoadService';
 import { GoogleMapView } from './GoogleMapView';
 
-type Props = React.ComponentProps<typeof GoogleMapView> & { apiKey: string };
+type Props = Omit<React.ComponentProps<typeof GoogleMapView>, 'reserveStyleChange'> & { apiKey: string };
 
 function AuthorizedMap({ allowance, onExpired, onFailure, ...props }: Omit<Props, 'apiKey'> & {
   allowance: MapLoadAllowance; onExpired: () => void; onFailure: () => void;
+  reserveStyleChange: () => Promise<void>;
 }) {
   const status = useApiLoadingStatus();
   const expired = allowance.period !== getMapUsagePeriod();
@@ -55,7 +56,8 @@ export function BudgetedGoogleMap({ apiKey, ...props }: Props) {
   return (
     <APIProvider apiKey={apiKey} libraries={['marker']} onError={mapError}>
       <div className="relative h-full w-full">
-        <AuthorizedMap {...props} allowance={allowance} onExpired={retry} onFailure={mapError} />
+        <AuthorizedMap {...props} allowance={allowance} onExpired={retry} onFailure={mapError}
+          reserveStyleChange={async () => { setAllowance(await requestMapLoad()); }} />
         <div className="pointer-events-none absolute bottom-7 right-4 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] text-slate-600 shadow dark:border-slate-800 dark:bg-slate-900/95 dark:text-slate-300">
           Monthly map allowance: {allowance.used.toLocaleString()} / {allowance.limit.toLocaleString()}
         </div>
