@@ -54,12 +54,7 @@ export function BudgetedGoogleMap({ apiKey, onToggleMapMode, ...props }: Props) 
   if (!allowance) return <div role="status" className="grid h-full place-items-center p-6 text-sm">Checking map allowance…</div>;
   return (
     <APIProvider apiKey={apiKey} libraries={['marker']} onError={mapError}>
-      <div className="relative h-full w-full">
-        <AuthorizedMap {...props} colorScheme={allowance.colorScheme} allowance={allowance.grant} onExpired={retry} onFailure={mapError} />
-        <div className="pointer-events-none absolute bottom-7 right-4 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] text-slate-600 shadow dark:border-slate-800 dark:bg-slate-900/95 dark:text-slate-300">
-          Monthly map allowance: {allowance.grant.used.toLocaleString()} / {allowance.grant.limit.toLocaleString()}
-        </div>
-      </div>
+      <AuthorizedMap {...props} colorScheme={allowance.colorScheme} allowance={allowance.grant} onExpired={retry} onFailure={mapError} />
     </APIProvider>
   );
 }

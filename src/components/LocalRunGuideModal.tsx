@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Property } from '../types';
 import { storageService } from '../services/storageService';
+import { fetchMapUsage } from '../services/mapLoadService';
+import type { MapLoadAllowance } from '../lib/mapUsage';
 import { HouseholdImportPanel } from './HouseholdImportPanel';
 import {
   X,
@@ -33,6 +35,20 @@ export const LocalRunGuideModal: React.FC<LocalRunGuideModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [sampleConfirm, setSampleConfirm] = useState(false);
+  const [mapUsage, setMapUsage] = useState<MapLoadAllowance | null>(null);
+  const [mapUsageFailed, setMapUsageFailed] = useState(false);
+  useEffect(() => {
+    if (!isOpen) return;
+    const request = new AbortController();
+    setMapUsage(null);
+    setMapUsageFailed(false);
+    fetchMapUsage(request.signal).then(usage => {
+      if (!request.signal.aborted) setMapUsage(usage);
+    }).catch(() => {
+      if (!request.signal.aborted) setMapUsageFailed(true);
+    });
+    return () => request.abort();
+  }, [isOpen]);
   if (!isOpen) return null;
 
   const localRunCode = `# 1. Install project dependencies
@@ -130,6 +146,14 @@ npm run dev
               </button>
               <pre className="overflow-x-auto">{localRunCode}</pre>
             </div>
+          </div>
+
+          <div className="border-t border-slate-200 pt-4 dark:border-slate-800">
+            <h4 className="text-sm font-bold">Monthly map allowance</h4>
+            <p role="status" className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+              {mapUsage ? `${mapUsage.used.toLocaleString()} of ${mapUsage.limit.toLocaleString()} map openings used`
+                : mapUsageFailed ? 'Map usage is unavailable.' : 'Loading map usage…'}
+            </p>
           </div>
 
           {/* Data Persistence, Reset & Backup */}

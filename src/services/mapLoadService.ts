@@ -20,3 +20,9 @@ export async function requestMapLoad(signal?: AbortSignal): Promise<MapLoadAllow
   }
   return data;
 }
+
+export async function fetchMapUsage(signal: AbortSignal): Promise<MapLoadAllowance> {
+  const response = await fetch('/api/map-load', { credentials: 'same-origin', signal });
+  if (!response.ok) throw new Error('Map usage is unavailable.');
+  return response.json();
+}

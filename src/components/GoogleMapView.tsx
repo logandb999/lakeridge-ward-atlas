@@ -275,11 +275,6 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
                 onMouseEnter={() => setHoveredProperty(property)}
                 onMouseLeave={() => setHoveredProperty(null)}
               >
-                {/* Active Selection Glow Ring */}
-                {isSelected && (
-                  <div className="absolute -inset-2 rounded-full border-2 border-blue-500 border-dashed animate-spin-slow pointer-events-none" />
-                )}
-
                 {/* Marker Pin */}
                 <div
                   className={`relative flex items-center justify-center rounded-full shadow-lg border-2 border-white text-white ${

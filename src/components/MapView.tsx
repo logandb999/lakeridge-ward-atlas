@@ -436,21 +436,7 @@ export const MapView: React.FC<MapViewProps> = ({
             >
               {/* Selected Focus Halo */}
               {isSelected && (
-                <>
-                  <circle
-                    r="24"
-                    fill="none"
-                    stroke="#2563eb"
-                    strokeWidth="2.5"
-                    strokeDasharray="4 3"
-                    className="animate-spin-slow"
-                  />
-                  <circle
-                    r="30"
-                    fill="#3b82f6"
-                    opacity="0.15"
-                  />
-                </>
+                <circle r="30" fill="#3b82f6" opacity="0.15" />
               )}
 
               {/* Marker Teardrop / Pin Base */}

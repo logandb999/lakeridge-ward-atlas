@@ -13,3 +13,10 @@ export async function reserveMapLoad(period: string): Promise<number | null> {
     RETURNING loads`;
   return rows.length ? Number(rows[0].loads) : null;
 }
+
+export async function readMapUsage(period: string): Promise<number> {
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
+  const sql = neon(process.env.DATABASE_URL);
+  const [row] = await sql`SELECT loads FROM atlas_map_usage WHERE period = ${period}`;
+  return Number(row?.loads ?? 0);
+}

@@ -58,7 +58,7 @@ test('map gate fails closed on authentication, configuration, or database failur
   await createMapLoadHandler({ authorize: async () => user, reserve: async () => { throw new Error('Offline'); }, configured: () => true })(req, databaseFailure.res);
   assert.equal(databaseFailure.result.status, 503);
   const get = response();
-  await createMapLoadHandler({ reserve })({ ...req, method: 'GET' } as VercelRequest, get.res);
+  await createMapLoadHandler({ reserve })({ ...req, method: 'PUT' } as VercelRequest, get.res);
   assert.equal(get.result.status, 405);
   assert.equal(reservations, 0);
 });
@@ -92,4 +92,21 @@ test('browser only accepts a valid current-month reservation; no fallback permis
   await assert.rejects(requestMapLoad(), /could not be verified/);
   globalThis.fetch = async () => { throw new Error('Network unavailable'); };
   await assert.rejects(requestMapLoad(), /Network unavailable/);
+});
+
+test('reading the admin usage count does not reserve an opening', async () => {
+  const handler = createMapLoadHandler({
+    authorize: async () => user,
+    configured: () => true,
+    now: () => new Date('2026-11-05T12:00:00Z'),
+    read: async period => {
+      assert.equal(period, '2026-11');
+      return 0;
+    },
+    reserve: async () => assert.fail('Usage reads must not reserve a map opening'),
+  });
+  const { res, result } = response();
+  await handler({ ...req, method: 'GET' }, res);
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, { period: '2026-11', used: 0, limit: MONTHLY_MAP_LOAD_LIMIT });
 });
