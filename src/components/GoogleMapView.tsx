@@ -46,7 +46,8 @@ interface GoogleMapViewProps {
 // 40°16'47.1"N 111°41'30.3"W
 const WARD_CENTER = { lat: 40.27975, lng: -111.69175 };
 const WARD_ZOOM = 17;
-const WARD_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() || 'DEMO_MAP_ID';
+const WARD_LIGHT_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() || '18bca3af307d7e4888e1632b';
+const WARD_DARK_MAP_ID = '18bca3af307d7e48960ec644';
 const MAP_STYLE_KEY = 'ward-atlas-map-style';
 type MapStyle = 'LIGHT' | 'DARK';
 
@@ -223,7 +224,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
     <div className="relative w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden">
       {/* Google Maps Container */}
       <Map
-        mapId={WARD_MAP_ID}
+        mapId={!locationReview && mapStyle === 'DARK' ? WARD_DARK_MAP_ID : WARD_LIGHT_MAP_ID}
         colorScheme={locationReview ? 'LIGHT' : mapStyle}
         defaultCenter={camera.current.center}
         defaultZoom={camera.current.zoom}
