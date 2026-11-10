@@ -44,6 +44,7 @@ interface GoogleMapViewProps {
 
 // 40°16'47.1"N 111°41'30.3"W
 const WARD_CENTER = { lat: 40.27975, lng: -111.69175 };
+const WARD_ZOOM = 17;
 
 function ReviewCamera({ point }: { point: ReviewCoordinates | null }) {
   const map = useMap();
@@ -196,7 +197,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
       <Map
         mapId="DEMO_MAP_ID"
         defaultCenter={WARD_CENTER}
-        defaultZoom={15}
+        defaultZoom={WARD_ZOOM}
         mapTypeId={locationReview ? 'hybrid' : 'roadmap'}
         onClick={event => { if (locationReview?.selectedId && event.detail.latLng) locationReview.onMove(event.detail.latLng); }}
         minZoom={12}
@@ -398,7 +399,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
 
         {/* Recenter Ward Button */}
         <button
-          onClick={() => setCenterTarget({ ...WARD_CENTER, zoom: 15 })}
+          onClick={() => setCenterTarget({ ...WARD_CENTER, zoom: WARD_ZOOM })}
           className="px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5 transition-colors"
           title="Recenter on Lakeridge Ward"
           aria-label="Recenter on Lakeridge Ward"
