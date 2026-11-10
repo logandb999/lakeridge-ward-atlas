@@ -10,12 +10,28 @@ export interface LocationReviewRecord {
   coordinates?: ReviewCoordinates;
   precision: string;
   expiresAt: string;
-  status: 'pending' | 'confirmed';
+  status: 'pending' | 'confirmed' | 'needs_contact';
   reviewNote?: string;
   reviewedAt?: string;
   reviewedBy?: string;
   revision: number;
   outsideWard?: boolean;
+  householdNames?: string[];
+  addressVerificationNeeded?: boolean;
+  householdAddressVerificationNeeded?: boolean;
+}
+
+export function buildLocationReviewUpdate(body: any, reviewer: string, now = new Date()) {
+  const { id, revision, coordinates, reviewNote } = body ?? {};
+  const action = body?.action ?? 'confirm';
+  if (typeof id !== 'string' || !/^[a-z0-9-]{1,100}$/.test(id) || !Number.isSafeInteger(revision) || revision < 0 ||
+    typeof reviewNote !== 'string' || reviewNote.length > 2000 || !['confirm', 'flag_address'].includes(action)) throw new Error('Expected a review record, valid action, notes, and the loaded revision.');
+  const audit = { reviewNote: reviewNote.trim(), reviewedAt: now.toISOString(), reviewedBy: reviewer };
+  if (action === 'flag_address') return { id, revision, requiresUnexpiredCoordinates: false,
+    changes: { ...audit, status: 'needs_contact', addressVerificationNeeded: true, householdAddressVerificationNeeded: true } };
+  if (!validReviewCoordinates(coordinates)) throw new Error('Valid coordinates are required to confirm a location.');
+  return { id, revision, requiresUnexpiredCoordinates: true,
+    changes: { ...audit, coordinates: { lat: coordinates.lat, lng: coordinates.lng }, status: 'confirmed', addressVerificationNeeded: false, householdAddressVerificationNeeded: false } };
 }
 export function validReviewCoordinates(point: any): point is ReviewCoordinates {
   return !!point && Number.isFinite(point.lat) && Number.isFinite(point.lng) && point.lat >= 37 && point.lat <= 42.1 && point.lng >= -114.1 && point.lng <= -109;

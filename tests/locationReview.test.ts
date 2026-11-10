@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canReviewLocations, parseLocationReviewUpload, validReviewCoordinates } from '../src/lib/locationReview';
+import { canReviewLocations, parseLocationReviewUpload, validReviewCoordinates, buildLocationReviewUpdate } from '../src/lib/locationReview';
 import { signAuthToken } from '../src/server/auth';
 import { requireLocationReviewer } from '../src/server/locationReview';
 import handler from '../api/location-review';
@@ -9,6 +9,22 @@ import { isReviewCleanupAuthorized } from '../src/server/reviewCleanup';
 const now = Date.parse('2026-11-09T00:00:00Z');
 const row = { id: 'review-test', address: '100 E Example St', householdIds: ['HH-test'], coordinates: { lat: 40.28, lng: -111.69 },
   precision: 'RANGE_INTERPOLATED', expiresAt: '2026-12-08T00:00:00Z', status: 'pending' };
+
+test('address and household verification is separate from confirming a map point and does not overwrite coordinates', () => {
+  const flag = buildLocationReviewUpdate({ id: row.id, revision: 2, action: 'flag_address', reviewNote: 'Ask household for current street address', reviewedBy: 'spoofed' }, 'reviewer@example.com');
+  assert.equal(flag.requiresUnexpiredCoordinates, false);
+  assert.equal(flag.changes.status, 'needs_contact');
+  assert.equal(flag.changes.addressVerificationNeeded, true);
+  assert.equal(flag.changes.householdAddressVerificationNeeded, true);
+  assert.equal('coordinates' in flag.changes, false);
+  assert.equal(flag.changes.reviewedBy, 'reviewer@example.com');
+  const confirmed = buildLocationReviewUpdate({ id: row.id, revision: 3, action: 'confirm', reviewNote: 'Address checked', coordinates: row.coordinates }, 'reviewer@example.com');
+  assert.equal(confirmed.requiresUnexpiredCoordinates, true);
+  assert.equal(confirmed.changes.status, 'confirmed');
+  assert.equal(confirmed.changes.addressVerificationNeeded, false);
+  assert.throws(() => buildLocationReviewUpdate({ id: row.id, revision: 3, reviewNote: '', action: 'confirm' }, 'reviewer@example.com'));
+  assert.throws(() => buildLocationReviewUpdate({ id: row.id, revision: 3, reviewNote: '', action: 'arbitrary_status' }, 'reviewer@example.com'));
+});
 
 test('review queue validates approximate coordinates and cannot seed confirmed, expired or duplicated records', () => {
   const parse = (locations: any[]) => parseLocationReviewUpload({ format: 'atlas-location-review-v1', locations }, now);

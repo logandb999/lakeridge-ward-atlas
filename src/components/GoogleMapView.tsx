@@ -213,11 +213,11 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
           <ReviewCamera point={locationReview.draft} />
           {locationReview.locations.filter(r => r.coordinates && Date.parse(r.expiresAt) > Date.now()).map(r => (
             <AdvancedMarker key={r.id} position={r.id === locationReview.selectedId && locationReview.draft ? locationReview.draft : r.coordinates!}
-              title={`${r.address} — ${r.status === 'confirmed' ? 'Confirmed' : 'Approximate'}`}
+              title={`${r.address} — ${r.status === 'confirmed' ? 'Confirmed' : r.status === 'needs_contact' ? 'Address verification needed' : 'Approximate'}`}
               draggable={r.id === locationReview.selectedId}
               onClick={() => locationReview.onSelect(r.id)}
               onDragEnd={event => { if (event.latLng) locationReview.onMove({ lat: event.latLng.lat(), lng: event.latLng.lng() }); }}>
-              <Pin background={r.status === 'confirmed' ? '#059669' : '#d97706'} borderColor={r.id === locationReview.selectedId ? '#2563eb' : '#ffffff'} glyphColor="#ffffff" />
+              <Pin background={r.status === 'confirmed' ? '#059669' : r.status === 'needs_contact' ? '#e11d48' : '#d97706'} borderColor={r.id === locationReview.selectedId ? '#2563eb' : '#ffffff'} glyphColor="#ffffff" />
             </AdvancedMarker>
           ))}
         </>}

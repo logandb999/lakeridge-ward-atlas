@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { requireLocationReviewer } from '../src/server/locationReview.js';
-import { parseLocationReviewUpload, validReviewCoordinates } from '../src/lib/locationReview.js';
+import { parseLocationReviewUpload, buildLocationReviewUpdate } from '../src/lib/locationReview.js';
 import { isReviewCleanupAuthorized } from '../src/server/reviewCleanup.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -39,12 +39,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ON CONFLICT (id) DO NOTHING RETURNING id`;
       return res.status(200).json({ added: rows.length, preserved: locations.length - rows.length });
     }
-    const { id, revision, coordinates, reviewNote } = req.body ?? {};
-    if (typeof id !== 'string' || id.length > 100 || !Number.isSafeInteger(revision) || revision < 0 || !validReviewCoordinates(coordinates) ||
-      typeof reviewNote !== 'string' || reviewNote.length > 2000) return res.status(400).json({ error: 'Expected a review record, valid coordinates, notes, and the loaded revision.' });
-    const updates = { coordinates: { lat: coordinates.lat, lng: coordinates.lng }, status: 'confirmed', reviewNote: reviewNote.trim(), reviewedAt: new Date().toISOString(), reviewedBy: user.email };
-    const rows = await sql`UPDATE atlas_location_review SET data = data || ${JSON.stringify(updates)}::jsonb, revision = revision + 1
-      WHERE id = ${id} AND revision = ${revision} AND (data->>'expiresAt')::timestamptz > now()
+    let update;
+    try { update = buildLocationReviewUpdate(req.body, user.email); }
+    catch (error) { return res.status(400).json({ error: (error as Error).message }); }
+    const rows = await sql`UPDATE atlas_location_review SET data = data || ${JSON.stringify(update.changes)}::jsonb, revision = revision + 1
+      WHERE id = ${update.id} AND revision = ${update.revision}
+      AND (${update.requiresUnexpiredCoordinates} = false OR (data->>'expiresAt')::timestamptz > now())
       RETURNING id, revision, data`;
     if (!rows.length) return res.status(409).json({ error: 'This review changed or its coordinates expired. Reload the queue before continuing.' });
     const row = rows[0];

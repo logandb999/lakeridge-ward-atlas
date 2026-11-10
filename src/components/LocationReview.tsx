@@ -16,7 +16,7 @@ export function LocationReview({ apiKey, email }: { apiKey: string; email: strin
   const [selectedId, setSelectedId] = useState('');
   const [draft, setDraft] = useState<ReviewCoordinates | null>(null);
   const [note, setNote] = useState('');
-  const [view, setView] = useState<'pending' | 'confirmed'>('pending');
+  const [view, setView] = useState<LocationReviewRecord['status']>('pending');
   const [busy, setBusy] = useState(true);
   const [message, setMessage] = useState('');
   const selected = locations.find(r => r.id === selectedId);
@@ -54,13 +54,13 @@ export function LocationReview({ apiKey, email }: { apiKey: string; email: strin
     } catch (error) { setMessage((error as Error).message); }
     finally { setBusy(false); }
   }
-  async function confirm() {
-    if (!selected || !draft) return;
+  async function saveReview(action: 'confirm' | 'flag_address') {
+    if (!selected || (action === 'confirm' && !draft)) return;
     setBusy(true); setMessage('');
     try {
-      const result = await request('PATCH', { id: selected.id, revision: selected.revision, coordinates: draft, reviewNote: note });
+      const result = await request('PATCH', { id: selected.id, revision: selected.revision, coordinates: draft, reviewNote: note, action });
       setLocations(rows => rows.map(r => r.id === selected.id ? result.location : r));
-      setSelectedId(''); setDraft(null); setNote(''); setMessage('Location confirmed and saved.');
+      setSelectedId(''); setDraft(null); setNote(''); setMessage(action === 'confirm' ? 'Location confirmed and saved.' : 'Address and linked households flagged for verification.');
     } catch (error) { setMessage((error as Error).message); }
     finally { setBusy(false); }
   }
@@ -79,6 +79,7 @@ export function LocationReview({ apiKey, email }: { apiKey: string; email: strin
         <select value={view} disabled={busy} onChange={e => { if (canLeave()) { setView(e.target.value as typeof view); setSelectedId(''); setDraft(null); setNote(''); } }} className="mt-1 w-full rounded-lg border p-2 dark:bg-slate-800">
           <option value="pending">Approximate — needs review ({locations.filter(r => r.status === 'pending').length})</option>
           <option value="confirmed">Confirmed ({locations.filter(r => r.status === 'confirmed').length})</option>
+          <option value="needs_contact">Address & household verification ({locations.filter(r => r.status === 'needs_contact').length})</option>
         </select>
       </label>
       <label className="mt-3 block text-xs">Load prepared review queue
@@ -89,14 +90,18 @@ export function LocationReview({ apiKey, email }: { apiKey: string; email: strin
       {selected && <div className="my-3 space-y-2 rounded-xl border border-blue-300 p-3 text-sm">
         <strong>{selected.address}</strong>
         {selected.outsideWard && <p className="font-semibold text-amber-700 dark:text-amber-300">Outside ward boundaries</p>}
+        {selected.addressVerificationNeeded && <p className="font-semibold text-rose-700 dark:text-rose-300">Address needs verification</p>}
+        {selected.householdAddressVerificationNeeded && <p className="font-semibold text-rose-700 dark:text-rose-300">Confirm current address with the household</p>}
+        {selected.householdNames?.map(name => <p key={name}>{name}</p>)}
         <p>{selected.householdIds.length} household records · {draft ? 'Pin can be adjusted' : 'Coordinates expired; a fresh lookup is needed'}</p>
         {draft && <p className="font-mono text-xs">{draft.lat.toFixed(7)}, {draft.lng.toFixed(7)}</p>}
         <label className="block">Review note<textarea maxLength={2000} value={note} disabled={busy} onChange={e => setNote(e.target.value)} className="mt-1 w-full rounded border p-2 dark:bg-slate-800" /></label>
-        <button disabled={busy || !draft || Date.parse(selected.expiresAt) <= Date.now()} onClick={() => void confirm()} className="rounded-lg bg-blue-600 px-3 py-2 font-semibold text-white disabled:opacity-50">Confirm this building location</button>
+        <button disabled={busy || !draft || Date.parse(selected.expiresAt) <= Date.now()} onClick={() => void saveReview('confirm')} className="rounded-lg bg-blue-600 px-3 py-2 font-semibold text-white disabled:opacity-50">Confirm this building location</button>
+        <button disabled={busy} onClick={() => void saveReview('flag_address')} className="block rounded-lg border border-rose-300 px-3 py-2 font-semibold text-rose-700 disabled:opacity-50">Flag address and household for verification</button>
         <p className="text-xs text-slate-500">Confirmation does not extend the Google coordinate cache expiry.</p>
       </div>}
       <ul className="space-y-1">{visible.map(r => <li key={r.id}><button disabled={busy} onClick={() => select(r.id)} className={`w-full rounded-lg border p-2 text-left text-sm ${selectedId === r.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-slate-200 dark:border-slate-700'}`}>
-        {r.address}{r.outsideWard && <span className="block text-xs font-semibold text-amber-700">Outside ward boundaries</span>}<span className="block text-xs text-slate-500">{!r.coordinates || Date.parse(r.expiresAt) <= Date.now() ? 'Location expired — refresh needed' : r.status === 'confirmed' ? 'Confirmed' : 'Approximate location'}</span>
+        {r.address}{r.householdNames?.map(name => <span key={name} className="block text-xs">{name}</span>)}{r.outsideWard && <span className="block text-xs font-semibold text-amber-700">Outside ward boundaries</span>}<span className="block text-xs text-slate-500">{r.status === 'needs_contact' ? 'Address and household need verification' : !r.coordinates || Date.parse(r.expiresAt) <= Date.now() ? 'Location expired — refresh needed' : r.status === 'confirmed' ? 'Confirmed' : 'Approximate location'}</span>
       </button></li>)}</ul>
       {!busy && !visible.length && <p className="mt-3 text-sm text-slate-500">No records in this filter. Load the prepared queue if it has not been added yet.</p>}
     </section>

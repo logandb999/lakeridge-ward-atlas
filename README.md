@@ -148,6 +148,10 @@ Select a record in **Approximate — needs review**, inspect satellite imagery, 
 
 ### Production release preparation
 
+The private review filter also includes **Address & household verification**. Selecting **Flag address and household for verification** saves `needs_contact`, with separate address-verification and linked-household-verification flags, without marking coordinates confirmed or changing the stored pin. Flagging is permitted even when cached coordinates have expired. A later location confirmation clears those two flags and still requires unexpired coordinates. This does not send a message or create a contact attempt.
+
+For a prepared private manifest of specific unresolved household links, `npm run locations:flag-followups` applies only those review updates from `.private/ward-import-2026-11-08/address-followups.json`. It verifies all links first, preserves other review records and existing notes, and checks revisions while saving. Household source names remain in the private manifest and database, never application source files.
+
 Before pushing a release that includes the review tools, run `npm run production:prepare` from a network-capable Terminal. It loads `.env.production.local`, checks the canonical production URL and reviewer, creates a local random `CRON_SECRET` if needed, and saves it to Vercel Production as a sensitive variable. It then runs the additive database migration and stages the prepared review queue without changing `atlas_state`. Existing review confirmations are preserved. Credentials and household records are not printed. Check for `productionSetupComplete: true` before pushing `main`; the subsequent Vercel build picks up the new secret and cron configuration.
 
 ## Shared monthly Google Maps allowance
