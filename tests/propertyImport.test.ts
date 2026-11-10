@@ -66,7 +66,7 @@ function database({ backupFails = false, concurrentChange = false } = {}) {
     if (backupFails) throw new Error('Backup storage unavailable');
     if (concurrentChange) return [];
     backups.push(structuredClone(data));
-    data = JSON.parse(args[2] as string);
+    data = JSON.parse(args[3] as string);
     return [{ revision: ++revision }];
   };
   return { sql: sql as any, state: () => ({ revision, data, backups, writes }) };

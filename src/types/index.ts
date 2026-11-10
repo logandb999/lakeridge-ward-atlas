@@ -78,7 +78,8 @@ export interface Property {
   unit?: string;
   zone: 'Unassigned' | 'North Ridge' | 'Lakeside East' | 'Timberline' | 'Meadowview';
   parcelNumber: string;
-  coordinates: PropertyCoordinates;
+  coordinates?: PropertyCoordinates;
+  location?: { source: 'google_geocoding'; expiresAt: string; status: 'matched_building' | 'confirmed' | 'needs_contact'; placeId?: string; reviewId?: string };
   occupantSummary: string;
   occupantState: OccupantState;
   accessNotes?: string;

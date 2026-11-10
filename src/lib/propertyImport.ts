@@ -17,9 +17,14 @@ export function isPropertyRecord(value: unknown): value is Property {
     ['Unassigned', 'North Ridge', 'Lakeside East', 'Timberline', 'Meadowview'].includes(p.zone) && text(p.parcelNumber) &&
     text(p.occupantSummary) && ['occupied', 'new_move_in', 'vacant', 'transient_rental'].includes(p.occupantState) &&
     optionalText(p.accessNotes) && optionalText(p.generalNotes) && strings(p.tags) &&
-    object(p.coordinates) && ['x', 'y', 'lat', 'lng'].every(key => Number.isFinite(p.coordinates[key])) &&
-    Math.abs(p.coordinates.lat) <= 90 && Math.abs(p.coordinates.lng) <= 180 &&
-    p.coordinates.x >= 0 && p.coordinates.x <= 1000 && p.coordinates.y >= 0 && p.coordinates.y <= 800 &&
+    (p.location === undefined || (object(p.location) && p.location.source === 'google_geocoding' &&
+      nonempty(p.location.expiresAt) && Number.isFinite(Date.parse(p.location.expiresAt)) &&
+      ['matched_building', 'confirmed', 'needs_contact'].includes(p.location.status) &&
+      optionalText(p.location.placeId) && optionalText(p.location.reviewId))) &&
+    ((p.coordinates === undefined && p.location?.source === 'google_geocoding') ||
+      (object(p.coordinates) && ['x', 'y', 'lat', 'lng'].every(key => Number.isFinite(p.coordinates[key])) &&
+      Math.abs(p.coordinates.lat) <= 90 && Math.abs(p.coordinates.lng) <= 180 &&
+      p.coordinates.x >= 0 && p.coordinates.x <= 1000 && p.coordinates.y >= 0 && p.coordinates.y <= 800)) &&
     Array.isArray(p.followUps) && p.followUps.every((f: any) => object(f) && nonempty(f.id) && f.propertyId === p.id &&
       nonempty(f.title) && calendarDate(f.dueDate) && ['pending', 'completed'].includes(f.status) &&
       roles.includes(f.assignedRole) && ['urgent', 'normal', 'low'].includes(f.priority) && nonempty(f.createdAt) &&

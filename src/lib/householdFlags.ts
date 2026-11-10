@@ -13,6 +13,7 @@ export const HOUSEHOLD_FLAGS: Record<HouseholdFlag, string> = {
 export function householdLabels(property: Property): string[] {
   const labels = Object.entries(HOUSEHOLD_FLAGS)
     .filter(([flag]) => property.householdFlags?.includes(flag as HouseholdFlag)).map(([, label]) => label);
+  if (property.location && (!property.coordinates || Date.parse(property.location.expiresAt) <= Date.now())) labels.push('Map location needs refresh');
   if (property.wardMembership?.status === 'other_ward') {
     labels.push(`Member of another ward${property.wardMembership.wardName ? `: ${property.wardMembership.wardName}` : ''}`);
   }

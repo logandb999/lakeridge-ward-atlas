@@ -16,7 +16,8 @@
     "geocode:review": "node --import tsx scripts/inspect-geocoding-review.ts",
     "locations:review-queue": "node --import tsx scripts/prepare-location-review.ts",
     "production:prepare": "node --env-file=.env.production.local --import tsx scripts/prepare-production.ts",
-    "locations:flag-followups": "node --env-file=.env.production.local --import tsx scripts/apply-location-followups.ts"
+    "locations:flag-followups": "node --env-file=.env.production.local --import tsx scripts/apply-location-followups.ts",
+    "households:prepare-import": "tsx scripts/prepare-household-import.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

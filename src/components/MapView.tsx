@@ -1,3 +1,4 @@
+import { hasMapLocation } from '../lib/propertyLocations';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Property, FollowUpStatus, FilterState } from '../types';
 import { computePropertyStatus, getStatusTheme, formatDueDateLabel } from '../services/storageService';
@@ -47,7 +48,7 @@ export const MapView: React.FC<MapViewProps> = ({
   useEffect(() => {
     if (selectedPropertyId && containerRef.current) {
       const selected = properties.find(p => p.id === selectedPropertyId);
-      if (selected) {
+      if (selected && !selected.location && hasMapLocation(selected)) {
         // Map viewBox is 1000 x 800
         const targetX = (500 - selected.coordinates.x) * scale;
         const targetY = (400 - selected.coordinates.y) * scale;
@@ -109,6 +110,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
   // Check if a property matches the current filter
   const matchesFilter = (property: Property): boolean => {
+    if (property.location || !hasMapLocation(property)) return false;
     const status = computePropertyStatus(property);
 
     // Status filter
@@ -409,7 +411,7 @@ export const MapView: React.FC<MapViewProps> = ({
         </g>
 
         {/* --- Property Markers --- */}
-        {properties.map(property => {
+        {properties.filter(p => !p.location && hasMapLocation(p)).map(property => {
           const status = computePropertyStatus(property);
           const theme = getStatusTheme(status);
           const isSelected = property.id === selectedPropertyId;

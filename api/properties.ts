@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { requireSession } from '../src/server/auth.js';
+import { cleanupPropertyLocations } from '../src/server/propertyLocationCleanup.js';
+import { stripCachedLocations } from '../src/lib/propertyLocations.js';
 import { isPropertyRecord } from '../src/lib/propertyImport.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -10,6 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
     const sql = neon(process.env.DATABASE_URL);
     if (req.method === 'GET') {
+      await cleanupPropertyLocations(sql);
       const rows = await sql`SELECT revision, data FROM atlas_state WHERE id = 1`;
       if (!rows.length) throw new Error('Run the database migration before using the atlas');
       return res.status(200).json({ properties: rows[0].data, revision: rows[0].revision });
@@ -21,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       // Compare and update in one statement: concurrent requests cannot overwrite a newer revision.
       const rows = await sql`UPDATE atlas_state
-        SET data = ${JSON.stringify(properties)}::jsonb, revision = revision + 1
+        SET data = ${JSON.stringify(stripCachedLocations(properties))}::jsonb, revision = revision + 1
         WHERE id = 1 AND revision = ${revision} RETURNING revision`;
       if (!rows.length) return res.status(409).json({ error: 'Records changed. Reload before saving.' });
       return res.status(200).json({ ok: true, revision: rows[0].revision });
@@ -29,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Allow', 'GET, PUT');
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
-    console.error('Properties API failed', error);
+    console.error('Properties API failed');
     return res.status(500).json({ error: 'Database request failed.' });
   }
 }

@@ -1,5 +1,6 @@
 import { FollowUpItem, FollowUpStatus, Property, VisitLog } from '../types';
 import { SAMPLE_FICTIONAL_PROPERTIES } from '../data/mockProperties';
+import { stripCachedLocations } from '../lib/propertyLocations';
 import { parsePropertyImport, planPropertyImport } from '../lib/propertyImport';
 
 
@@ -163,7 +164,7 @@ export const storageService = {
     save([item, ...cache]); return item;
   },
   deleteProperty(propertyId: string): void { save(cache.filter(p => p.id !== propertyId)); },
-  exportData(): string { return JSON.stringify(cache, null, 2); },
+  exportData(): string { return JSON.stringify(stripCachedLocations(cache, true), null, 2); },
   previewImport(content: string) {
     if (sync.access !== 'ready' || sync.status !== 'saved' || generation !== persistedGeneration || importing || saving) {
       throw new Error('Wait for all changes to save, then reload if needed before importing.');

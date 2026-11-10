@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
 import { requireLocationReviewer } from '../src/server/locationReview.js';
 import { parseLocationReviewUpload, buildLocationReviewUpdate } from '../src/lib/locationReview.js';
+import { cleanupPropertyLocations } from '../src/server/propertyLocationCleanup.js';
 import { isReviewCleanupAuthorized } from '../src/server/reviewCleanup.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -14,7 +15,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const sql = neon(process.env.DATABASE_URL);
       const expired = await sql`UPDATE atlas_location_review SET data = data - 'coordinates', revision = revision + 1
         WHERE data ? 'coordinates' AND (data->>'expiresAt')::timestamptz <= now() RETURNING id`;
-      return res.status(200).json({ cleaned: expired.length });
+      const householdStatesCleaned = await cleanupPropertyLocations(sql);
+      return res.status(200).json({ cleaned: expired.length, householdStatesCleaned });
     } catch { return res.status(503).json({ error: 'Coordinate cleanup failed.' }); }
   }
   const user = await requireLocationReviewer(req, res);

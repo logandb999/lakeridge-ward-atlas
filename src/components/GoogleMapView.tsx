@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { hasMapLocation } from '../lib/propertyLocations';
 import { HouseholdFlags } from './HouseholdFlags';
 import { householdLabels } from '../lib/householdFlags';
 import type { LocationReviewRecord, ReviewCoordinates } from '../lib/locationReview';
@@ -64,7 +65,7 @@ function MapCameraController({
 
   // If a property is selected, center on it
   useEffect(() => {
-    if (!map || !selectedProperty) return;
+    if (!map || !selectedProperty || !hasMapLocation(selectedProperty)) return;
     map.panTo({
       lat: selectedProperty.coordinates.lat,
       lng: selectedProperty.coordinates.lng,
@@ -182,7 +183,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
 
   const matchStats = useMemo(() => {
     const total = properties.length;
-    const matching = properties.filter(matchesFilter).length;
+    const matching = properties.filter(p => matchesFilter(p) && hasMapLocation(p)).length;
     return { total, matching };
   }, [properties, filter]);
 
@@ -250,7 +251,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
           const isSelected = property.id === selectedPropertyId;
           const isMatch = matchesFilter(property);
 
-          if (!isMatch) return null;
+          if (!isMatch || !hasMapLocation(property)) return null;
 
           return (
             <AdvancedMarker
@@ -279,7 +280,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
                   className={`relative flex items-center justify-center rounded-full shadow-lg border-2 border-white text-white ${
                     isSelected ? 'w-10 h-10 ring-4 ring-blue-500/30' : 'w-8 h-8'
                   }`}
-                  style={{ backgroundColor: theme.markerBg }}
+                  style={{ backgroundColor: property.householdFlags?.includes('verify_address') ? '#e11d48' : theme.markerBg }}
                 >
                   {status === 'overdue' && <AlertTriangle className="w-4 h-4" />}
                   {status === 'due_soon' && <Clock className="w-4 h-4" />}
@@ -298,7 +299,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         })}
 
         {/* InfoWindow for Selected Property */}
-        {selectedProperty && (
+        {selectedProperty && hasMapLocation(selectedProperty) && (
           <InfoWindow
             position={{
               lat: selectedProperty.coordinates.lat,
