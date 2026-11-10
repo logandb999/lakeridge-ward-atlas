@@ -341,21 +341,9 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         )}
       </Map>
 
-      {!locationReview && <div className="absolute top-16 left-4 z-20 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-md backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
-        <label className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-          <span className="font-semibold">Pin labels</span>
-          <select aria-label="Map pin labels" value={labelMode} onChange={event => setLabelMode(event.target.value as MapLabelMode)}
-            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
-            <option value="house_number">House number</option>
-            <option value="last_name">Last name</option>
-          </select>
-        </label>
-
-      </div>}
-
       {/* Floating Notification Toast */}
       {locationToast && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="bg-slate-900/90 text-white text-xs font-medium px-3.5 py-1.5 rounded-full shadow-lg border border-slate-700 flex items-center gap-1.5">
             <Navigation className="w-3.5 h-3.5 text-blue-400" />
             <span>{locationToast}</span>
@@ -363,65 +351,74 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         </div>
       )}
 
-      {/* Floating Top Left Match Banner */}
-      <div className="absolute top-4 left-4 z-20 pointer-events-auto">
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 px-3.5 py-2 flex items-center gap-2.5 text-xs">
-          <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{locationReview ? 'Location Review' : 'Google Maps Live'}</span>
+      <div className="pointer-events-none absolute left-4 right-14 top-4 z-20 flex flex-wrap items-start justify-between gap-2">
+        <div className="pointer-events-auto max-w-full">
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 px-3.5 py-2 flex items-center gap-2.5 text-xs">
+            <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{locationReview ? 'Location Review' : 'Google Maps Live'}</span>
+            </div>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span className="text-slate-600 dark:text-slate-400">
+              {locationReview ? `${locationReview.locations.length} review records` : <><strong className="text-slate-900 dark:text-white tabular-nums">{matchStats.matching}</strong> of {matchStats.total} addresses shown</>}
+            </span>
           </div>
-          <span className="text-slate-300 dark:text-slate-700">|</span>
-          <span className="text-slate-600 dark:text-slate-400">
-            {locationReview ? `${locationReview.locations.length} review records` : <><strong className="text-slate-900 dark:text-white tabular-nums">{matchStats.matching}</strong> of {matchStats.total} addresses shown</>}
-          </span>
         </div>
-      </div>
 
-      {/* Floating Controls (Top Right: Locate Me, Recenter Ward, Map Switcher, Legend) */}
-      <div className="absolute top-4 right-14 z-20 flex items-center gap-2 pointer-events-auto">
-        {/* Locate My Location Button */}
-        <button
-          onClick={() => handleRequestLocation(false)}
-          disabled={isLocating}
-          className={`px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-            userLocation
-              ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40'
-              : 'text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400'
-          }`}
-          title="Center on my current location"
-          aria-label="Locate me"
-        >
-          {isLocating ? (
-            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-          ) : (
-            <Navigation className={`w-4 h-4 ${userLocation ? 'fill-blue-600 text-blue-600 dark:fill-blue-400 dark:text-blue-400' : ''}`} />
-          )}
-          <span className="hidden sm:inline">My Location</span>
-        </button>
+        <div className="pointer-events-auto ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
+          {/* Locate My Location Button */}
+          <button
+            onClick={() => handleRequestLocation(false)}
+            disabled={isLocating}
+            className={`px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              userLocation
+                ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40'
+                : 'text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400'
+            }`}
+            title="Center on my current location"
+            aria-label="Locate me"
+          >
+            {isLocating ? (
+              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+            ) : (
+              <Navigation className={`w-4 h-4 ${userLocation ? 'fill-blue-600 text-blue-600 dark:fill-blue-400 dark:text-blue-400' : ''}`} />
+            )}
+            <span className="hidden sm:inline">My Location</span>
+          </button>
 
-        {/* Recenter Ward Button */}
-        <button
-          onClick={() => setCenterTarget({ ...WARD_CENTER, zoom: WARD_ZOOM })}
-          className="px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5 transition-colors"
-          title="Recenter on Lakeridge Ward"
-          aria-label="Recenter on Lakeridge Ward"
-        >
-          <Compass className="w-4 h-4 text-slate-500" />
-          <span className="hidden sm:inline">Ward Center</span>
-        </button>
+          {/* Recenter Ward Button */}
+          <button
+            onClick={() => setCenterTarget({ ...WARD_CENTER, zoom: WARD_ZOOM })}
+            className="px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5 transition-colors"
+            title="Recenter on Lakeridge Ward"
+            aria-label="Recenter on Lakeridge Ward"
+          >
+            <Compass className="w-4 h-4 text-slate-500" />
+            <span className="hidden sm:inline">Ward Center</span>
+          </button>
 
+          {!locationReview && <div className="shrink-0 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-md backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
+            <label className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+              <span className="font-semibold">Pin labels</span>
+              <select aria-label="Map pin labels" value={labelMode} onChange={event => setLabelMode(event.target.value as MapLabelMode)}
+                className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
+                <option value="house_number">House number</option>
+                <option value="last_name">Last name</option>
+              </select>
+            </label>
+          </div>}
 
-
-        <button
-          onClick={() => setShowLegend(!showLegend)}
-          className={`w-9 h-9 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-colors ${
-            showLegend ? 'text-blue-600 border-blue-400' : 'text-slate-700 dark:text-slate-200'
-          }`}
-          title="Atlas Legend"
-          aria-label="Atlas Legend"
-        >
-          <Info className="w-4 h-4" />
-        </button>
+          <button
+            onClick={() => setShowLegend(!showLegend)}
+            className={`w-9 h-9 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 flex items-center justify-center transition-colors ${
+              showLegend ? 'text-blue-600 border-blue-400' : 'text-slate-700 dark:text-slate-200'
+            }`}
+            title="Atlas Legend"
+            aria-label="Atlas Legend"
+          >
+            <Info className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Collapsible Atlas Legend */}
