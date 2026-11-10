@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { redactReleaseOutput, vercelEnvironmentSaved } from '../src/server/releaseDiagnostics';
+import { redactReleaseOutput, vercelEnvironmentSaved, vercelSecretInput } from '../src/server/releaseDiagnostics';
+
+test('Vercel receives cleanup secrets without a newline or whitespace in HTTP header values', () => {
+  const secret = 'safe_token-'.repeat(4);
+  assert.equal(vercelSecretInput(secret + '\n'), secret);
+  assert.equal(vercelSecretInput(secret).endsWith('\n'), false);
+  assert.throws(() => vercelSecretInput('short'));
+  assert.throws(() => vercelSecretInput(secret + '\nembedded'));
+});
 
 test('production setup recognizes both initial and replacement Vercel environment saves', () => {
   assert.equal(vercelEnvironmentSaved(0, 'Added Environment Variable CRON_SECRET to Project atlas'), true);

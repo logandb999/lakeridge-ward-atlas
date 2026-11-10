@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { neon } from '@neondatabase/serverless';
 import { parseLocationReviewUpload, LOCATION_REVIEWER_EMAIL } from '../src/lib/locationReview';
-import { redactReleaseOutput, vercelEnvironmentSaved } from '../src/server/releaseDiagnostics';
+import { redactReleaseOutput, vercelEnvironmentSaved, vercelSecretInput } from '../src/server/releaseDiagnostics';
 
 let step = 'validate production settings';
 let safeFailure = '';
@@ -32,7 +32,7 @@ async function main() {
   console.log('Configuring the production cleanup secret in Vercel…');
   const cli = await fs.realpath('node_modules/.bin/vercel');
   const result = spawnSync(process.execPath, [cli, 'env', 'add', 'CRON_SECRET', 'production', '--force', '--sensitive'], {
-    input: secret + '\n', encoding: 'utf8', timeout: 45000, env: { ...process.env, NO_COLOR: '1' },
+    input: vercelSecretInput(secret), encoding: 'utf8', timeout: 45000, env: { ...process.env, NO_COLOR: '1' },
   });
   if (!vercelEnvironmentSaved(result.status, `${result.stdout}\n${result.stderr}`)) {
     const diagnostic = redactReleaseOutput(`${result.stdout ?? ''}\n${result.stderr ?? ''}`, secrets());
