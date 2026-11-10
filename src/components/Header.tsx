@@ -58,15 +58,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </button>
 
-        {/* Data management */}
-        <button
-          onClick={onOpenGuide}
-          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-lg hover:bg-amber-100 transition-colors"
-          title="Open data management and setup"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-          <span>Data &amp; Setup</span>
-        </button>
       </div>
 
       {/* Zone 2: Navigation Links (Single-Line, clean) */}

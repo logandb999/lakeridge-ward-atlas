@@ -68,7 +68,7 @@ export function LocationReview({ apiKey, email, colorScheme }: { apiKey: string;
   return <div className="flex h-full min-h-0 flex-col lg:flex-row">
     <div className="relative min-h-[280px] flex-1">
       {apiKey ? <BudgetedGoogleMap colorScheme={colorScheme} apiKey={apiKey} properties={[]} selectedPropertyId={null} onSelectProperty={() => {}}
-        filter={{ status: 'all', role: 'all', zone: 'all', searchQuery: '' }} mapMode="google"
+        filter={{ status: 'all', role: 'all', zone: 'all', searchQuery: '' }}
         locationReview={{ locations: visible, selectedId, draft, onSelect: select, onMove: point => { if (!busy) setDraft(point); } }} />
         : <p className="p-6">Google Maps must be configured to review locations.</p>}
     </div>

@@ -18,7 +18,6 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle2,
-  Layers,
   Compass,
   Info,
   MapPin,
@@ -32,8 +31,6 @@ interface GoogleMapViewProps {
   selectedPropertyId: string | null;
   onSelectProperty: (id: string) => void;
   filter: FilterState;
-  onToggleMapMode?: () => void;
-  mapMode: 'google' | 'vector';
   locationReview?: {
     locations: LocationReviewRecord[];
     selectedId: string;
@@ -46,8 +43,7 @@ interface GoogleMapViewProps {
 // 40°16'47.1"N 111°41'30.3"W
 const WARD_CENTER = { lat: 40.27975, lng: -111.69175 };
 const WARD_ZOOM = 17;
-const WARD_LIGHT_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() || '18bca3af307d7e4888e1632b';
-const WARD_DARK_MAP_ID = '18bca3af307d7e48960ec644';
+const WARD_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() || '18bca3af307d7e4888e1632b';
 
 function ReviewCamera({ point }: { point: ReviewCoordinates | null }) {
   const map = useMap();
@@ -97,8 +93,6 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
   selectedPropertyId,
   onSelectProperty,
   filter,
-  onToggleMapMode,
-  mapMode,
   locationReview,
   colorScheme,
 }) => {
@@ -200,7 +194,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
     <div className="relative w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden">
       {/* Google Maps Container */}
       <Map
-        mapId={colorScheme === 'DARK' ? WARD_DARK_MAP_ID : WARD_LIGHT_MAP_ID}
+        mapId={WARD_MAP_ID}
         colorScheme={colorScheme}
         defaultCenter={camera.current.center}
         defaultZoom={camera.current.zoom}
@@ -416,17 +410,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
           <span className="hidden sm:inline">Ward Center</span>
         </button>
 
-        {/* Toggle between Google Maps & Ward GIS Vector */}
-        {onToggleMapMode && (
-          <button
-            onClick={onToggleMapMode}
-            className="px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-md border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5 transition-colors"
-            title="Switch to Ward GIS Vector Map"
-          >
-            <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span>GIS View</span>
-          </button>
-        )}
+
 
         <button
           onClick={() => setShowLegend(!showLegend)}

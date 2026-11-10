@@ -392,7 +392,6 @@ export default function App() {
                     selectedPropertyId={selectedPropertyId}
                     onSelectProperty={id => setSelectedPropertyId(id)}
                     filter={filter}
-                    mapMode={mapMode}
                     onToggleMapMode={() => setMapMode('vector')}
                   />
                 ) : (

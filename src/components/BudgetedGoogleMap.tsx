@@ -4,9 +4,9 @@ import { getMapUsagePeriod, type MapLoadAllowance } from '../lib/mapUsage';
 import { MapLoadError, requestMapLoad } from '../services/mapLoadService';
 import { GoogleMapView } from './GoogleMapView';
 
-type Props = React.ComponentProps<typeof GoogleMapView> & { apiKey: string };
+type Props = React.ComponentProps<typeof GoogleMapView> & { apiKey: string; onToggleMapMode?: () => void };
 
-function AuthorizedMap({ allowance, onExpired, onFailure, ...props }: Omit<Props, 'apiKey'> & {
+function AuthorizedMap({ allowance, onExpired, onFailure, ...props }: Omit<Props, 'apiKey' | 'onToggleMapMode'> & {
   allowance: MapLoadAllowance; onExpired: () => void; onFailure: () => void;
 }) {
   const status = useApiLoadingStatus();
@@ -21,7 +21,7 @@ function AuthorizedMap({ allowance, onExpired, onFailure, ...props }: Omit<Props
   return <GoogleMapView {...props} />;
 }
 
-export function BudgetedGoogleMap({ apiKey, ...props }: Props) {
+export function BudgetedGoogleMap({ apiKey, onToggleMapMode, ...props }: Props) {
   const [allowance, setAllowance] = useState<{ grant: MapLoadAllowance; colorScheme: Props['colorScheme'] } | null>(null);
   const [error, setError] = useState<MapLoadError | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -46,7 +46,7 @@ export function BudgetedGoogleMap({ apiKey, ...props }: Props) {
         <p className="mt-2 text-slate-500">Addresses, notes, and follow-ups are still available.</p>
         <div className="mt-4 flex gap-4">
           {error.status !== 429 && <button onClick={retry} className="font-medium text-blue-600 underline">Try again</button>}
-          <button onClick={props.onToggleMapMode} className="font-medium text-blue-600 underline">Use sketch map</button>
+          {onToggleMapMode && <button onClick={onToggleMapMode} className="font-medium text-blue-600 underline">Use sketch map</button>}
         </div>
       </div>
     </div>
