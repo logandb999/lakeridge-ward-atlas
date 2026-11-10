@@ -45,6 +45,7 @@ interface GoogleMapViewProps {
 // 40°16'47.1"N 111°41'30.3"W
 const WARD_CENTER = { lat: 40.27975, lng: -111.69175 };
 const WARD_ZOOM = 17;
+const WARD_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() || 'DEMO_MAP_ID';
 
 function ReviewCamera({ point }: { point: ReviewCoordinates | null }) {
   const map = useMap();
@@ -195,7 +196,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
     <div className="relative w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden">
       {/* Google Maps Container */}
       <Map
-        mapId="DEMO_MAP_ID"
+        mapId={WARD_MAP_ID}
         defaultCenter={WARD_CENTER}
         defaultZoom={WARD_ZOOM}
         mapTypeId={locationReview ? 'hybrid' : 'roadmap'}
