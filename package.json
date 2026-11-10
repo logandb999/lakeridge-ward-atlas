@@ -17,7 +17,8 @@
     "locations:review-queue": "node --import tsx scripts/prepare-location-review.ts",
     "production:prepare": "node --env-file=.env.production.local --import tsx scripts/prepare-production.ts",
     "locations:flag-followups": "node --env-file=.env.production.local --import tsx scripts/apply-location-followups.ts",
-    "households:prepare-import": "tsx scripts/prepare-household-import.ts"
+    "households:prepare-import": "tsx scripts/prepare-household-import.ts",
+    "households:import-production": "node --env-file=.env.production.local --import tsx scripts/import-production-households.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
