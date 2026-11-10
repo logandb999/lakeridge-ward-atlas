@@ -4,11 +4,10 @@ import { getMapUsagePeriod, type MapLoadAllowance } from '../lib/mapUsage';
 import { MapLoadError, requestMapLoad } from '../services/mapLoadService';
 import { GoogleMapView } from './GoogleMapView';
 
-type Props = Omit<React.ComponentProps<typeof GoogleMapView>, 'reserveStyleChange'> & { apiKey: string };
+type Props = React.ComponentProps<typeof GoogleMapView> & { apiKey: string };
 
 function AuthorizedMap({ allowance, onExpired, onFailure, ...props }: Omit<Props, 'apiKey'> & {
   allowance: MapLoadAllowance; onExpired: () => void; onFailure: () => void;
-  reserveStyleChange: () => Promise<void>;
 }) {
   const status = useApiLoadingStatus();
   const expired = allowance.period !== getMapUsagePeriod();
@@ -23,19 +22,19 @@ function AuthorizedMap({ allowance, onExpired, onFailure, ...props }: Omit<Props
 }
 
 export function BudgetedGoogleMap({ apiKey, ...props }: Props) {
-  const [allowance, setAllowance] = useState<MapLoadAllowance | null>(null);
+  const [allowance, setAllowance] = useState<{ grant: MapLoadAllowance; colorScheme: Props['colorScheme'] } | null>(null);
   const [error, setError] = useState<MapLoadError | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-    setAllowance(null); setError(null);
+    setError(null);
     // Every mounted map must reserve its own opening. Never reuse this grant
     // after leaving the map screen, refreshing, or switching back from the sketch.
-    requestMapLoad().then(grant => { if (active) setAllowance(grant); }).catch(cause => {
+    requestMapLoad().then(grant => { if (active) setAllowance({ grant, colorScheme: props.colorScheme }); }).catch(cause => {
       if (active) setError(cause instanceof MapLoadError ? cause : new MapLoadError('Map usage could not be checked. Please try again.', 503));
     });
     return () => { active = false; };
-  }, [attempt]);
+  }, [attempt, props.colorScheme]);
   const retry = React.useCallback(() => { setAllowance(null); setError(null); setAttempt(value => value + 1); }, []);
   const mapError = React.useCallback(() => setError(new MapLoadError('Google Maps could not load. You can still use Addresses and Follow-Ups.', 503)), []);
 
@@ -56,10 +55,9 @@ export function BudgetedGoogleMap({ apiKey, ...props }: Props) {
   return (
     <APIProvider apiKey={apiKey} libraries={['marker']} onError={mapError}>
       <div className="relative h-full w-full">
-        <AuthorizedMap {...props} allowance={allowance} onExpired={retry} onFailure={mapError}
-          reserveStyleChange={async () => { setAllowance(await requestMapLoad()); }} />
+        <AuthorizedMap {...props} colorScheme={allowance.colorScheme} allowance={allowance.grant} onExpired={retry} onFailure={mapError} />
         <div className="pointer-events-none absolute bottom-7 right-4 rounded-lg border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] text-slate-600 shadow dark:border-slate-800 dark:bg-slate-900/95 dark:text-slate-300">
-          Monthly map allowance: {allowance.used.toLocaleString()} / {allowance.limit.toLocaleString()}
+          Monthly map allowance: {allowance.grant.used.toLocaleString()} / {allowance.grant.limit.toLocaleString()}
         </div>
       </div>
     </APIProvider>

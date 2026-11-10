@@ -29,6 +29,19 @@ import {
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 export default function App() {
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return (localStorage.getItem('ward-atlas-theme') ?? localStorage.getItem('ward-atlas-map-style')) === 'DARK';
+    } catch {
+      return false;
+    }
+  });
+  const colorScheme = darkMode ? 'DARK' : 'LIGHT';
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    try { localStorage.setItem('ward-atlas-theme', colorScheme); } catch { /* Preference applies for this visit. */ }
+  }, [darkMode, colorScheme]);
+
   // Primary State
   const [properties, setProperties] = useState<Property[]>([]);
   const [sync, setSync] = useState(storageService.getSyncState());
@@ -250,6 +263,8 @@ export default function App() {
         )}
         <div className="contents" inert={sync.access !== 'ready' || ['error', 'conflict', 'loading'].includes(sync.status)}>
         <Header
+          darkMode={darkMode}
+          onToggleTheme={() => setDarkMode(value => !value)}
           currentView={currentView}
           onViewChange={view => {
             setCurrentView(view);
@@ -270,7 +285,7 @@ export default function App() {
         {/* Main Viewport Workspace */}
         <main className="flex-1 relative overflow-hidden flex flex-col">
           {/* --- View 1: Atlas Map (Primary Map-First Screen) --- */}
-          {currentView === 'map' && reviewLocations && canReviewLocations(sync.user) && <LocationReview key={sync.user!.email} apiKey={GOOGLE_MAPS_API_KEY} email={sync.user!.email} />}
+          {currentView === 'map' && reviewLocations && canReviewLocations(sync.user) && <LocationReview colorScheme={colorScheme} key={sync.user!.email} apiKey={GOOGLE_MAPS_API_KEY} email={sync.user!.email} />}
           {currentView === 'map' && !reviewLocations && (
             <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden h-full">
               {/* Left/Center: Prominent Interactive Map Area */}
@@ -372,6 +387,7 @@ export default function App() {
                 {mapMode === 'google' && GOOGLE_MAPS_API_KEY && sync.access === 'ready' ? (
                   <BudgetedGoogleMap
                     apiKey={GOOGLE_MAPS_API_KEY}
+                    colorScheme={colorScheme}
                     properties={properties}
                     selectedPropertyId={selectedPropertyId}
                     onSelectProperty={id => setSelectedPropertyId(id)}

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 
 interface GoogleMapViewProps {
-  reserveStyleChange: () => Promise<void>;
+  colorScheme: 'LIGHT' | 'DARK';
   properties: Property[];
   selectedPropertyId: string | null;
   onSelectProperty: (id: string) => void;
@@ -48,8 +48,6 @@ const WARD_CENTER = { lat: 40.27975, lng: -111.69175 };
 const WARD_ZOOM = 17;
 const WARD_LIGHT_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() || '18bca3af307d7e4888e1632b';
 const WARD_DARK_MAP_ID = '18bca3af307d7e48960ec644';
-const MAP_STYLE_KEY = 'ward-atlas-map-style';
-type MapStyle = 'LIGHT' | 'DARK';
 
 function ReviewCamera({ point }: { point: ReviewCoordinates | null }) {
   const map = useMap();
@@ -102,34 +100,12 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
   onToggleMapMode,
   mapMode,
   locationReview,
-  reserveStyleChange,
+  colorScheme,
 }) => {
   const [hoveredProperty, setHoveredProperty] = useState<Property | null>(null);
   const [showLegend, setShowLegend] = useState(false);
   const [labelMode, setLabelMode] = useState<MapLabelMode>('house_number');
-  const [mapStyle, setMapStyle] = useState<MapStyle>(() => {
-    try { return localStorage.getItem(MAP_STYLE_KEY) === 'DARK' ? 'DARK' : 'LIGHT'; }
-    catch { return 'LIGHT'; }
-  });
-  const [changingStyle, setChangingStyle] = useState(false);
-  const [styleError, setStyleError] = useState('');
   const camera = useRef({ center: WARD_CENTER, zoom: WARD_ZOOM });
-
-  async function changeMapStyle(style: MapStyle) {
-    if (style === mapStyle || changingStyle) return;
-    setChangingStyle(true);
-    setStyleError('');
-    try {
-      // Google creates a new map instance when its color scheme changes.
-      await reserveStyleChange();
-      setMapStyle(style);
-      try { localStorage.setItem(MAP_STYLE_KEY, style); } catch { /* Preference applies for this visit. */ }
-    } catch (error) {
-      setStyleError(error instanceof Error ? error.message : 'Could not change map style.');
-    } finally {
-      setChangingStyle(false);
-    }
-  }
   const householdCounts = useMemo(() => buildHouseholdCounts(properties), [properties]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -224,8 +200,8 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
     <div className="relative w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden">
       {/* Google Maps Container */}
       <Map
-        mapId={!locationReview && mapStyle === 'DARK' ? WARD_DARK_MAP_ID : WARD_LIGHT_MAP_ID}
-        colorScheme={locationReview ? 'LIGHT' : mapStyle}
+        mapId={colorScheme === 'DARK' ? WARD_DARK_MAP_ID : WARD_LIGHT_MAP_ID}
+        colorScheme={colorScheme}
         defaultCenter={camera.current.center}
         defaultZoom={camera.current.zoom}
         onCameraChanged={({ detail }) => { camera.current = { center: detail.center, zoom: detail.zoom }; }}
@@ -371,7 +347,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
         )}
       </Map>
 
-      {!locationReview && <div className="absolute top-16 left-4 z-20 space-y-2 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-md backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
+      {!locationReview && <div className="absolute top-16 left-4 z-20 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-md backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
         <label className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
           <span className="font-semibold">Pin labels</span>
           <select aria-label="Map pin labels" value={labelMode} onChange={event => setLabelMode(event.target.value as MapLabelMode)}
@@ -380,15 +356,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
             <option value="last_name">Last name</option>
           </select>
         </label>
-        <label className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-          <span className="font-semibold">Map style</span>
-          <select value={mapStyle} disabled={changingStyle} onChange={event => void changeMapStyle(event.target.value as MapStyle)}
-            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
-            <option value="LIGHT">Light</option>
-            <option value="DARK">Dark</option>
-          </select>
-        </label>
-        {styleError && <p role="status" className="max-w-56 text-rose-700 dark:text-rose-300">{styleError}</p>}
+
       </div>}
 
       {/* Floating Notification Toast */}

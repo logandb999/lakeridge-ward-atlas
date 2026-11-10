@@ -10,7 +10,7 @@ async function request(method: 'GET' | 'POST' | 'PATCH', body?: unknown) {
   return result;
 }
 
-export function LocationReview({ apiKey, email }: { apiKey: string; email: string }) {
+export function LocationReview({ apiKey, email, colorScheme }: { apiKey: string; email: string; colorScheme: 'LIGHT' | 'DARK' }) {
   const allowed = canReviewLocations({ email });
   const [locations, setLocations] = useState<LocationReviewRecord[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -67,7 +67,7 @@ export function LocationReview({ apiKey, email }: { apiKey: string; email: strin
   if (!allowed) return null;
   return <div className="flex h-full min-h-0 flex-col lg:flex-row">
     <div className="relative min-h-[280px] flex-1">
-      {apiKey ? <BudgetedGoogleMap apiKey={apiKey} properties={[]} selectedPropertyId={null} onSelectProperty={() => {}}
+      {apiKey ? <BudgetedGoogleMap colorScheme={colorScheme} apiKey={apiKey} properties={[]} selectedPropertyId={null} onSelectProperty={() => {}}
         filter={{ status: 'all', role: 'all', zone: 'all', searchQuery: '' }} mapMode="google"
         locationReview={{ locations: visible, selectedId, draft, onSelect: select, onMove: point => { if (!busy) setDraft(point); } }} />
         : <p className="p-6">Google Maps must be configured to review locations.</p>}

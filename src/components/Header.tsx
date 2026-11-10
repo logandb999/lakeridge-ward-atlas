@@ -8,10 +8,14 @@ import {
   ChevronDown,
   User,
   ShieldCheck,
-  Compass
+  Compass,
+  Moon,
+  Sun
 } from 'lucide-react';
 
 interface HeaderProps {
+  darkMode: boolean;
+  onToggleTheme: () => void;
   currentView: 'map' | 'follow_ups' | 'directory';
   onViewChange: (view: 'map' | 'follow_ups' | 'directory') => void;
   currentUser: UserAccount;
@@ -22,6 +26,8 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  darkMode,
+  onToggleTheme,
   currentView,
   onViewChange,
   currentUser,
@@ -113,13 +119,24 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Zone 3: Signed-in Account & Guide Action */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 text-xs" aria-label={`Signed in as ${currentUser.name}`}>
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs" aria-label={`Signed in as ${currentUser.name}`}>
           <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold flex items-center justify-center shrink-0">{currentUser.avatarInitials}</div>
           <div className="hidden lg:block truncate max-w-[160px]">
             <div className="font-semibold truncate">{currentUser.name}</div>
             <div className="text-[10px] text-slate-500">{currentUser.roleTitle}</div>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-label="Dark mode"
+          aria-pressed={darkMode}
+          title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          {darkMode ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
+        </button>
 
         {/* Local Run Guide Button */}
         <button
