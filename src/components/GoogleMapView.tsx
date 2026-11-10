@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { hasMapLocation } from '../lib/propertyLocations';
+import { buildHouseholdCounts, mapPropertyLabel, type MapLabelMode } from '../lib/mapLabels';
 import { HouseholdFlags } from './HouseholdFlags';
 import { householdLabels } from '../lib/householdFlags';
 import type { LocationReviewRecord, ReviewCoordinates } from '../lib/locationReview';
@@ -98,6 +99,8 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
 }) => {
   const [hoveredProperty, setHoveredProperty] = useState<Property | null>(null);
   const [showLegend, setShowLegend] = useState(false);
+  const [labelMode, setLabelMode] = useState<MapLabelMode>('house_number');
+  const householdCounts = useMemo(() => buildHouseholdCounts(properties), [properties]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [centerTarget, setCenterTarget] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
@@ -291,7 +294,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
 
                 {/* Address Chip Tag underneath */}
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-1.5 py-0.5 rounded bg-slate-900/90 text-white text-[10px] font-bold whitespace-nowrap shadow-md pointer-events-none border border-slate-700">
-                  {property.address.split(' ')[0]} {property.unit ? `(${property.unit.split(' ')[1] || property.unit})` : ''}
+                  {mapPropertyLabel(property, labelMode, householdCounts)}
                 </div>
               </div>
             </AdvancedMarker>
@@ -335,6 +338,17 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
           </InfoWindow>
         )}
       </Map>
+
+      {!locationReview && <div className="absolute top-16 left-4 z-20 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow-md backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
+        <label className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+          <span className="font-semibold">Pin labels</span>
+          <select aria-label="Map pin labels" value={labelMode} onChange={event => setLabelMode(event.target.value as MapLabelMode)}
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
+            <option value="house_number">House number</option>
+            <option value="last_name">Last name</option>
+          </select>
+        </label>
+      </div>}
 
       {/* Floating Notification Toast */}
       {locationToast && (
