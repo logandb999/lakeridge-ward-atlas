@@ -24,7 +24,9 @@ import {
   ChevronDown,
   Layers,
   Info,
-  Plus
+  Plus,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -58,6 +60,16 @@ export default function App() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'map' | 'follow_ups' | 'directory' | 'admin'>('map');
   const [reviewLocations, setReviewLocations] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isMapExpanded) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMapExpanded(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isMapExpanded]);
   const currentUser: UserAccount = {
     id: sync.user?.id ?? '', name: sync.user?.name ?? '', role: 'all', roleTitle: sync.user?.role === 'admin' ? 'Administrator' : 'Regular user',
     avatarInitials: (sync.user?.name ?? '').split(' ').filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase(),
@@ -205,7 +217,7 @@ export default function App() {
 
   return (
     <>
-      <div className="app-shell flex flex-col w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-hidden">
+      <div className={`app-shell ${isMapExpanded ? 'map-expanded' : ''} flex flex-col w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-hidden`}>
         {/* Google Maps Quota Exceeded In-App Banner */}
         {quotaExceeded && (
           <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
@@ -237,7 +249,7 @@ export default function App() {
             </div>
           </div>
         )}
-        {sync.access === 'ready' && (
+        {sync.access === 'ready' && !isMapExpanded && (
           <div role="status" aria-live="polite" className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 text-xs sm:text-sm dark:border-slate-800 dark:bg-slate-900 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <span>{sync.status === 'saving' ? 'Saving… Keep this page open.' : sync.status === 'loading' ? 'Loading latest records…' : sync.status === 'saved' ? 'Saved to shared database' : 'Changes have not been saved'}</span>
             <div className="flex flex-wrap items-center justify-end gap-3">
@@ -263,11 +275,13 @@ export default function App() {
           </div>
         )}
         <div className="contents" inert={sync.access !== 'ready' || ['error', 'conflict', 'loading'].includes(sync.status)}>
+        <div className="contents" data-map-chrome>
         <Header
           darkMode={darkMode}
           onToggleTheme={() => setDarkMode(value => !value)}
           currentView={currentView === 'admin' ? 'map' : currentView}
           onViewChange={view => {
+            setIsMapExpanded(false);
             setCurrentView(view);
             setReviewLocations(false);
           }}
@@ -284,6 +298,7 @@ export default function App() {
             {reviewLocations ? 'Back to ward map' : 'Review approximate locations (private)'}
           </button>
         </div>}
+        </div>
         {/* Main Viewport Workspace */}
         <main className="flex-1 min-h-0 min-w-0 relative overflow-hidden flex flex-col">
           {currentView === 'admin' && sync.user?.role === 'admin' && <AdminPage email={sync.user.email} onOpenSetup={() => setShowGuideModal(true)} />}
@@ -294,7 +309,7 @@ export default function App() {
               {/* Left/Center: Prominent Interactive Map Area */}
               <div className="flex-1 min-h-0 min-w-0 relative overflow-hidden flex flex-col">
                 {/* Mobile Quick Filter Header */}
-                <div className="lg:hidden shrink-0 p-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-10 flex items-center gap-2">
+                <div data-map-chrome className="lg:hidden shrink-0 p-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-10 flex items-center gap-2">
                   <div className="relative min-w-0 flex-1">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
@@ -330,7 +345,7 @@ export default function App() {
                 </div>
 
                 {/* Mobile Filter Drawer Dropdown */}
-                {mobileFilterOpen && (
+                {mobileFilterOpen && !isMapExpanded && (
                   <div className="lg:hidden shrink-0 max-h-[40%] overflow-y-auto p-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 text-xs space-y-2 animate-in slide-in-from-top duration-150">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -409,11 +424,22 @@ export default function App() {
                     onToggleMapMode={() => setMapMode('google')}
                   />
                 )}
+                <button
+                  type="button"
+                  onClick={() => setIsMapExpanded(expanded => !expanded)}
+                  aria-label={isMapExpanded ? 'Restore header and footer' : 'Expand map'}
+                  aria-pressed={isMapExpanded}
+                  title={isMapExpanded ? 'Restore header and footer (Esc)' : 'Expand map'}
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 text-xs font-semibold text-slate-700 shadow-md backdrop-blur-md hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-slate-800 dark:bg-slate-900/95 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {isMapExpanded ? <Minimize2 className="h-4 w-4" aria-hidden="true" /> : <Maximize2 className="h-4 w-4" aria-hidden="true" />}
+                  {isMapExpanded ? 'Restore layout' : 'Expand map'}
+                </button>
                 </div>
               </div>
 
             {/* Desktop Side Panel: Shows Details if Property is selected, or Navigator Sidebar if none */}
-            <div className="hidden lg:block w-[400px] xl:w-[440px] h-full shrink-0">
+            <div data-map-chrome className="hidden lg:block w-[400px] xl:w-[440px] h-full shrink-0">
               {selectedProperty ? (
                 <PropertyDetail
                   property={selectedProperty}
@@ -439,7 +465,7 @@ export default function App() {
 
             {/* Mobile Bottom Sheet for Selected Property Details */}
             {selectedProperty && (
-              <div className="lg:hidden absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex flex-col justify-end">
+              <div className={`${isMapExpanded ? '' : 'lg:hidden'} absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex flex-col justify-end`}>
                 <div
                   className="w-full bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200 dark:border-slate-800 flex flex-col max-h-full overflow-hidden animate-in slide-in-from-bottom duration-200"
                   onClick={e => e.stopPropagation()}
@@ -491,7 +517,7 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Tab Bar (Thumb Zone) */}
-      <nav className="mobile-navigation lg:hidden shrink-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-around px-2">
+      <nav data-map-chrome className="mobile-navigation lg:hidden shrink-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-around px-2">
         <button
           onClick={() => setCurrentView('map')}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition-colors ${

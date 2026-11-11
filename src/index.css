@@ -28,6 +28,14 @@ body,
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.map-expanded [data-map-chrome] {
+  display: none;
+}
+
+.app-shell.map-expanded {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 @media (min-width: 64rem) {
   .app-shell {
     padding-bottom: env(safe-area-inset-bottom, 0px);
