@@ -205,7 +205,7 @@ export default function App() {
 
   return (
     <>
-      <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-hidden">
+      <div className="app-shell flex flex-col w-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased overflow-hidden">
         {/* Google Maps Quota Exceeded In-App Banner */}
         {quotaExceeded && (
           <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
@@ -238,7 +238,7 @@ export default function App() {
           </div>
         )}
         {sync.access === 'ready' && (
-          <div role="status" aria-live="polite" className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 text-sm dark:border-slate-800 dark:bg-slate-900 flex items-center justify-between gap-3">
+          <div role="status" aria-live="polite" className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 text-xs sm:text-sm dark:border-slate-800 dark:bg-slate-900 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <span>{sync.status === 'saving' ? 'Saving… Keep this page open.' : sync.status === 'loading' ? 'Loading latest records…' : sync.status === 'saved' ? 'Saved to shared database' : 'Changes have not been saved'}</span>
             <div className="flex flex-wrap items-center justify-end gap-3">
               <span className="hidden sm:inline text-xs text-slate-500">{sync.user?.email}</span>
@@ -279,23 +279,23 @@ export default function App() {
           onOpenGuide={undefined}
         />
 
-        {canReviewLocations(sync.user) && <div className="border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+        {canReviewLocations(sync.user) && <div className="shrink-0 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
           <button className="text-sm font-semibold text-blue-600" onClick={() => { setCurrentView('map'); setReviewLocations(value => !value); }}>
             {reviewLocations ? 'Back to ward map' : 'Review approximate locations (private)'}
           </button>
         </div>}
         {/* Main Viewport Workspace */}
-        <main className="flex-1 relative overflow-hidden flex flex-col">
+        <main className="flex-1 min-h-0 min-w-0 relative overflow-hidden flex flex-col">
           {currentView === 'admin' && sync.user?.role === 'admin' && <AdminPage email={sync.user.email} onOpenSetup={() => setShowGuideModal(true)} />}
           {/* --- View 1: Atlas Map (Primary Map-First Screen) --- */}
           {currentView === 'map' && reviewLocations && canReviewLocations(sync.user) && <LocationReview colorScheme={colorScheme} key={sync.user!.email} apiKey={GOOGLE_MAPS_API_KEY} email={sync.user!.email} />}
           {currentView === 'map' && !reviewLocations && (
-            <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden h-full">
+            <div className="flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row relative overflow-hidden">
               {/* Left/Center: Prominent Interactive Map Area */}
-              <div className="flex-1 relative h-full overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 min-w-0 relative overflow-hidden flex flex-col">
                 {/* Mobile Quick Filter Header */}
-                <div className="lg:hidden p-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-10 flex items-center gap-2">
-                  <div className="relative flex-1">
+                <div className="lg:hidden shrink-0 p-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-10 flex items-center gap-2">
+                  <div className="relative min-w-0 flex-1">
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
@@ -331,7 +331,7 @@ export default function App() {
 
                 {/* Mobile Filter Drawer Dropdown */}
                 {mobileFilterOpen && (
-                  <div className="lg:hidden p-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 text-xs space-y-2 animate-in slide-in-from-top duration-150">
+                  <div className="lg:hidden shrink-0 max-h-[40%] overflow-y-auto p-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 text-xs space-y-2 animate-in slide-in-from-top duration-150">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <span className="text-[10px] text-slate-500 font-medium">Status:</span>
@@ -387,6 +387,7 @@ export default function App() {
                 )}
 
                 {/* Primary Map Engine: Google Maps or Ward GIS Vector Map */}
+                <div className="flex-1 min-h-0 relative overflow-hidden">
                 {mapMode === 'google' && GOOGLE_MAPS_API_KEY && sync.access === 'ready' ? (
                   <BudgetedGoogleMap
                     apiKey={GOOGLE_MAPS_API_KEY}
@@ -408,6 +409,7 @@ export default function App() {
                     onToggleMapMode={() => setMapMode('google')}
                   />
                 )}
+                </div>
               </div>
 
             {/* Desktop Side Panel: Shows Details if Property is selected, or Navigator Sidebar if none */}
@@ -437,9 +439,9 @@ export default function App() {
 
             {/* Mobile Bottom Sheet for Selected Property Details */}
             {selectedProperty && (
-              <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex flex-col justify-end">
+              <div className="lg:hidden absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex flex-col justify-end">
                 <div
-                  className="w-full bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200 dark:border-slate-800 flex flex-col max-h-[82vh] overflow-hidden animate-in slide-in-from-bottom duration-200 pb-16"
+                  className="w-full bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200 dark:border-slate-800 flex flex-col max-h-full overflow-hidden animate-in slide-in-from-bottom duration-200"
                   onClick={e => e.stopPropagation()}
                 >
                   {/* Drag Handle */}
@@ -488,8 +490,8 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Fixed Bottom Navigation Tab Bar (Thumb Zone) */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-around h-16 px-2">
+      {/* Mobile Bottom Navigation Tab Bar (Thumb Zone) */}
+      <nav className="mobile-navigation lg:hidden shrink-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-around px-2">
         <button
           onClick={() => setCurrentView('map')}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition-colors ${

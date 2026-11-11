@@ -40,18 +40,18 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
 
   return (
-    <header className="h-16 px-4 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0 z-30">
+    <header className="h-16 px-3 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 lg:gap-4 shrink-0 z-30">
       {/* Zone 1: Wordmark & Quiet Prototype Label */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={() => onViewChange('map')}
-          className="flex items-center gap-2.5 text-left group"
+          className="flex items-center gap-2 sm:gap-2.5 min-w-0 text-left group"
         >
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs group-hover:bg-blue-700 transition-colors">
+          <div className="w-9 h-9 shrink-0 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs group-hover:bg-blue-700 transition-colors">
             <Compass className="w-5 h-5" />
           </div>
-          <div>
-            <div className="text-base font-bold text-slate-900 dark:text-white tracking-tight leading-none">
+          <div className="min-w-0">
+            <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-none">
               Lakeridge Ward Atlas
             </div>
             <div className="text-[10px] text-slate-500 font-medium mt-0.5">
@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Zone 2: Navigation Links (Single-Line, clean) */}
-      <nav className="hidden sm:flex items-center gap-1 text-sm font-medium">
+      <nav className="hidden lg:flex items-center gap-1 text-sm font-medium">
         <button
           onClick={() => onViewChange('map')}
           className={`px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap shrink-0 flex items-center gap-2 ${
@@ -112,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Zone 3: Signed-in Account & Guide Action */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs" aria-label={`Signed in as ${currentUser.name}`}>
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 text-xs" aria-label={`Signed in as ${currentUser.name}`}>
           <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold flex items-center justify-center shrink-0">{currentUser.avatarInitials}</div>
           <div className="hidden lg:block truncate max-w-[160px]">
             <div className="font-semibold truncate">{currentUser.name}</div>
@@ -135,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Local Run Guide Button */}
         {onOpenGuide && <button
           onClick={onOpenGuide}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors"
+          className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors"
           title="Prototype Info & Local Run Guide"
           aria-label="Help and Local Run Guide"
         >
