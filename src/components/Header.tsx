@@ -22,7 +22,8 @@ interface HeaderProps {
   pendingCount: number;
   overdueCount: number;
   totalProperties: number;
-  onOpenGuide: () => void;
+  onOpenGuide?: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   overdueCount,
   totalProperties,
   onOpenGuide,
+  onOpenAdmin,
 }) => {
 
   return (
@@ -129,15 +131,16 @@ export const Header: React.FC<HeaderProps> = ({
           {darkMode ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
         </button>
 
+        {onOpenAdmin && <button onClick={onOpenAdmin} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold dark:border-slate-700">Admin</button>}
         {/* Local Run Guide Button */}
-        <button
+        {onOpenGuide && <button
           onClick={onOpenGuide}
           className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-colors"
           title="Prototype Info & Local Run Guide"
           aria-label="Help and Local Run Guide"
         >
           <Info className="w-4 h-4" />
-        </button>
+        </button>}
       </div>
     </header>
   );

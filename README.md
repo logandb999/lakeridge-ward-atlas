@@ -180,3 +180,23 @@ Set GOOGLE_MAPS_GEOCODING_API_KEY as a server-only Vercel Production secret and 
 Address matches are assessed with the existing rooftop/street checks. Fresh lookups must agree with previously reviewed pins before automatic replacement. Shifted, approximate, or changed-address results enter the private review queue. Existing coordinates retain their original expiry while awaiting review. Confirming a linked review atomically updates its imported household pins. Notes, household identities, and contact restrictions are preserved. This refresh cannot guarantee uninterrupted pins when an API failure persists through expiry or a changed location awaits review.
 
 The owner can open /api/geocoding-refresh?dryRun=1 while signed in to verify the due-building count and key configuration with no lookup requests or data changes. Cron summaries contain counts and sanitized API status codes, with no household data or credentials.
+
+
+### User access
+
+The **Admin** button opens user management for administrators. Add the exact email
+used with Google sign-in, choosing **Regular user** (default) or **Admin**.
+Adding access does not send email; share the app URL with the person separately.
+Regular users can view and edit household records, notes, visits and follow-ups.
+Admins can also manage users and open Data & Setup, including household imports.
+The original `ATLAS_ALLOWED_EMAIL` account remains a protected owner/admin so access
+cannot be accidentally locked out. Other admins cannot change their own access.
+The existing private location-review workflow remains restricted to its designated owner.
+
+Access lives in `atlas_users`; `atlas_user_audit` records who changed access and when.
+These additive tables initialize on first use and are also included in `npm run db:migrate`.
+No additional environment variables are required. Each server request checks the current
+access list and role. Removal invalidates existing sessions; re-adding the same email
+requires a fresh sign-in. A role change takes effect server-side on the next request;
+refresh the app to update its navigation. Data already viewed cannot be recalled from a
+person's browser, so only authorize people who should see the full household dataset.

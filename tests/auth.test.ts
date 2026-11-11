@@ -26,13 +26,13 @@ function response() {
   return { res, result };
 }
 
-test('Google identity requires matching email, verification, subject and nonce', () => {
+test('Google identity requires matching email, verification, subject and nonce', async () => {
   const payload = { sub: 'google-subject', email: 'OWNER@example.com', email_verified: true, nonce: 'nonce', name: 'Owner' };
-  assert.equal(allowedGoogleIdentity(payload, 'nonce')?.email, 'owner@example.com');
-  assert.equal(allowedGoogleIdentity({ ...payload, email: 'other@example.com' }, 'nonce'), null);
-  assert.equal(allowedGoogleIdentity({ ...payload, email_verified: false }, 'nonce'), null);
-  assert.equal(allowedGoogleIdentity({ ...payload, sub: '' }, 'nonce'), null);
-  assert.equal(allowedGoogleIdentity(payload, 'other-nonce'), null);
+  assert.equal((await allowedGoogleIdentity(payload, 'nonce'))?.email, 'owner@example.com');
+  assert.equal(await allowedGoogleIdentity({ ...payload, email: 'other@example.com' }, 'nonce'), null);
+  assert.equal(await allowedGoogleIdentity({ ...payload, email_verified: false }, 'nonce'), null);
+  assert.equal(await allowedGoogleIdentity({ ...payload, sub: '' }, 'nonce'), null);
+  assert.equal(await allowedGoogleIdentity(payload, 'other-nonce'), null);
 });
 
 test('sessions enforce signatures, expiry, purpose and current allowlist', async () => {

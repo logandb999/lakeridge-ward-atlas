@@ -4,7 +4,7 @@ import { stripCachedLocations } from '../lib/propertyLocations';
 import { parsePropertyImport, planPropertyImport } from '../lib/propertyImport';
 
 
-export interface SignedInUser { id: string; email: string; name: string }
+export interface SignedInUser { id: string; email: string; name: string; role: 'admin' | 'user' }
 
 export function getTodayDateString(): string {
   const now = new Date();

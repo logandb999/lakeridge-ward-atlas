@@ -1,12 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { OAuth2Client, CodeChallengeMethod } from 'google-auth-library';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { authConfig, cookie, getSession, isSameOrigin, readCookie, SESSION_SECONDS, signAuthToken, verifyAuthToken } from '../../src/server/auth.js';
+import { authConfig, resolveAccess, cookie, getSession, isSameOrigin, readCookie, SESSION_SECONDS, signAuthToken, verifyAuthToken } from '../../src/server/auth.js';
 
-export function allowedGoogleIdentity(payload: { sub?: string; email?: string; email_verified?: boolean; name?: string; nonce?: unknown } | undefined, nonce: string) {
-  const config = authConfig();
-  if (!payload?.sub || payload.nonce !== nonce || payload.email_verified !== true || payload.email?.toLowerCase() !== config.email) return null;
-  return { id: payload.sub, email: config.email, name: payload.name?.trim() || config.email };
+export async function allowedGoogleIdentity(payload: { sub?: string; email?: string; email_verified?: boolean; name?: string; nonce?: unknown } | undefined, nonce: string) {
+  if (!payload?.sub || payload.nonce !== nonce || payload.email_verified !== true || !payload.email) return null;
+  const email = payload.email.toLowerCase();
+  const access = await resolveAccess(email);
+  return access ? { id: payload.sub, email, name: payload.name?.trim() || email, ...access } : null;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -20,7 +21,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try { config = authConfig(); } catch {
     return res.status(503).json({ configured: false, user: null, error: 'Google sign-in is not configured.' });
   }
-  if (action === 'session') return res.status(200).json({ configured: true, user: await getSession(req) });
+  if (action === 'session') {
+    try { return res.status(200).json({ configured: true, user: await getSession(req) }); }
+    catch { return res.status(503).json({ error: 'Sign-in is temporarily unavailable.' }); }
+  }
   if (action === 'logout') {
     if (!isSameOrigin(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
     res.setHeader('Set-Cookie', [cookie(config.sessionCookie, '', 0), cookie(config.flowCookie, '', 0)]);
@@ -60,9 +64,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { tokens } = await client.getToken({ code: req.query.code, codeVerifier: flow.codeVerifier, redirect_uri: config.redirectUri });
     if (!tokens.id_token) throw new Error('Missing identity');
     const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: config.clientId });
-    const user = allowedGoogleIdentity(ticket.getPayload(), flow.nonce);
+    const user = await allowedGoogleIdentity(ticket.getPayload(), flow.nonce);
     if (!user) return res.redirect(302, '/?auth_error=not_allowed');
-    const session = await signAuthToken({ sub: user.id, email: user.email, name: user.name }, 'session', SESSION_SECONDS);
+    const session = await signAuthToken({ sub: user.id, email: user.email, name: user.name, accessVersion: user.accessVersion }, 'session', SESSION_SECONDS);
     res.setHeader('Set-Cookie', [cookie(config.flowCookie, '', 0), cookie(config.sessionCookie, session, SESSION_SECONDS)]);
     return res.redirect(302, '/');
   } catch { return res.redirect(302, '/?auth_error=failed'); }

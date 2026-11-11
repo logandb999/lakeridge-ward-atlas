@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { SignJWT, jwtVerify } from 'jose';
+import { findAuthorizedUser, type AccessRole } from './users.js';
 
-export interface SessionUser { id: string; email: string; name: string }
+export interface SessionUser { id: string; email: string; name: string; role: AccessRole; accessVersion?: string }
 export const SESSION_SECONDS = 8 * 60 * 60;
 
 export function authConfig() {
@@ -50,14 +51,16 @@ export async function verifyAuthToken(token: string, purpose: 'session' | 'oauth
   })).payload;
 }
 
-export async function getSession(req: VercelRequest): Promise<SessionUser | null> {
+export async function getSession(req: VercelRequest, resolve = resolveAccess): Promise<SessionUser | null> {
   const config = authConfig();
   const token = readCookie(req, config.sessionCookie);
   if (!token) return null;
   try {
     const payload = await verifyAuthToken(token, 'session');
-    if (typeof payload.sub !== 'string' || !payload.sub || payload.email !== config.email || typeof payload.name !== 'string') return null;
-    return { id: payload.sub, email: config.email, name: payload.name };
+    if (typeof payload.sub !== 'string' || !payload.sub || typeof payload.email !== 'string' || typeof payload.name !== 'string') return null;
+    const access = await resolve(payload.email);
+    if (!access || (access.accessVersion && access.accessVersion !== payload.accessVersion)) return null;
+    return { id: payload.sub, email: payload.email, name: payload.name, ...access };
   } catch { return null; }
 }
 
@@ -76,4 +79,17 @@ export async function requireSession(req: VercelRequest, res: VercelResponse): P
   } catch {
     res.status(503).json({ error: 'Google sign-in is not configured.' }); return null;
   }
+}
+
+export async function resolveAccess(email: string): Promise<{ role: AccessRole; accessVersion?: string } | null> {
+  if (email === authConfig().email) return { role: 'admin' };
+  const entry = await findAuthorizedUser(email);
+  return entry ? { role: entry.role, accessVersion: entry.version } : null;
+}
+
+export async function requireAdmin(req: VercelRequest, res: VercelResponse, authorize = requireSession) {
+  const user = await authorize(req, res);
+  if (!user) return null;
+  if (user.role !== 'admin') { res.status(403).json({ error: 'Administrator access is required.' }); return null; }
+  return user;
 }

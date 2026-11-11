@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Property, FilterState, UserAccount, WardRole, FollowUpItem, VisitLog } from './types';
 import { storageService, computePropertyStatus, getTodayDateString, getDaysDiffFromToday } from './services/storageService';
+import { AdminPage } from './components/AdminPage';
 import { Header } from './components/Header';
 import { MapView } from './components/MapView';
 import { BudgetedGoogleMap } from './components/BudgetedGoogleMap';
@@ -55,10 +56,10 @@ export default function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'map' | 'follow_ups' | 'directory'>('map');
+  const [currentView, setCurrentView] = useState<'map' | 'follow_ups' | 'directory' | 'admin'>('map');
   const [reviewLocations, setReviewLocations] = useState(false);
   const currentUser: UserAccount = {
-    id: sync.user?.id ?? '', name: sync.user?.name ?? '', role: 'all', roleTitle: 'Administrator',
+    id: sync.user?.id ?? '', name: sync.user?.name ?? '', role: 'all', roleTitle: sync.user?.role === 'admin' ? 'Administrator' : 'Regular user',
     avatarInitials: (sync.user?.name ?? '').split(' ').filter(Boolean).map(part => part[0]).slice(0, 2).join('').toUpperCase(),
   };
   const [authError] = useState(() => {
@@ -265,7 +266,7 @@ export default function App() {
         <Header
           darkMode={darkMode}
           onToggleTheme={() => setDarkMode(value => !value)}
-          currentView={currentView}
+          currentView={currentView === 'admin' ? 'map' : currentView}
           onViewChange={view => {
             setCurrentView(view);
             setReviewLocations(false);
@@ -274,7 +275,8 @@ export default function App() {
           pendingCount={pendingCount}
           overdueCount={overdueCount}
           totalProperties={properties.length}
-          onOpenGuide={() => setShowGuideModal(true)}
+          onOpenAdmin={sync.user?.role === 'admin' ? () => setCurrentView('admin') : undefined}
+          onOpenGuide={undefined}
         />
 
         {canReviewLocations(sync.user) && <div className="border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
@@ -284,6 +286,7 @@ export default function App() {
         </div>}
         {/* Main Viewport Workspace */}
         <main className="flex-1 relative overflow-hidden flex flex-col">
+          {currentView === 'admin' && sync.user?.role === 'admin' && <AdminPage email={sync.user.email} onOpenSetup={() => setShowGuideModal(true)} />}
           {/* --- View 1: Atlas Map (Primary Map-First Screen) --- */}
           {currentView === 'map' && reviewLocations && canReviewLocations(sync.user) && <LocationReview colorScheme={colorScheme} key={sync.user!.email} apiKey={GOOGLE_MAPS_API_KEY} email={sync.user!.email} />}
           {currentView === 'map' && !reviewLocations && (
@@ -533,7 +536,7 @@ export default function App() {
 
       {/* Guide & Local Setup Modal */}
       <LocalRunGuideModal
-        isOpen={showGuideModal}
+        isOpen={showGuideModal && sync.user?.role === 'admin'}
         onClose={() => setShowGuideModal(false)}
         onClearAll={handleClearAll}
         onLoadSampleData={handleLoadSampleData}

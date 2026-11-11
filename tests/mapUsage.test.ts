@@ -15,7 +15,7 @@ function response() {
   return { res, result };
 }
 const req = { method: 'POST', headers: {}, body: { period: '1900-01', used: 0 } } as VercelRequest;
-const user = { id: 'test-owner', email: 'owner@example.com', name: 'Owner' };
+const user = { id: 'test-owner', email: 'owner@example.com', name: 'Owner', role: 'admin' as const };
 
 test('monthly allowance uses Pacific calendar boundaries, including year and DST transitions', () => {
   assert.equal(getMapUsagePeriod(new Date('2026-11-01T06:59:59Z')), '2026-10');
