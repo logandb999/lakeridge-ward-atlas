@@ -1,9 +1,9 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { neon } from '@neondatabase/serverless';
-import type { Property } from '../types/index';
-import { parseAddressQuery } from '../lib/addressMatching';
-import { assessGoogleGeocode, buildingQueryKey, GEOCODING_CACHE_DAYS } from '../lib/googleGeocoding';
-import { canAcceptRefreshedLocation, shouldRefreshLocation } from '../lib/geocodingRefresh';
+import type { Property } from '../types/index.js';
+import { parseAddressQuery } from '../lib/addressMatching.js';
+import { assessGoogleGeocode, buildingQueryKey, GEOCODING_CACHE_DAYS } from '../lib/googleGeocoding.js';
+import { canAcceptRefreshedLocation, shouldRefreshLocation } from '../lib/geocodingRefresh.js';
 
 type Sql = ReturnType<typeof neon<false, false>>;
 

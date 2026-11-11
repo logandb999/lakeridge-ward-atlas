@@ -1,5 +1,5 @@
-import type { Property } from '../types/index';
-import { assessGoogleGeocode } from './googleGeocoding';
+import type { Property } from '../types/index.js';
+import { assessGoogleGeocode } from './googleGeocoding.js';
 
 const DAY = 86400000;
 
