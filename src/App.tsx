@@ -7,6 +7,7 @@ import { MapView } from './components/MapView';
 import { BudgetedGoogleMap } from './components/BudgetedGoogleMap';
 import { MapSidebar } from './components/MapSidebar';
 import { PropertyDetail } from './components/PropertyDetail';
+import { PropertyDetailSheet } from './components/PropertyDetailSheet';
 import { FollowUpList } from './components/FollowUpList';
 import { PropertyDirectory } from './components/PropertyDirectory';
 import { LocalRunGuideModal } from './components/LocalRunGuideModal';
@@ -465,30 +466,24 @@ export default function App() {
 
             {/* Mobile Bottom Sheet for Selected Property Details */}
             {selectedProperty && (
-              <div className={`${isMapExpanded ? '' : 'lg:hidden'} absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex flex-col justify-end`}>
-                <div
-                  className="w-full bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl border-t border-slate-200 dark:border-slate-800 flex flex-col max-h-full overflow-hidden animate-in slide-in-from-bottom duration-200"
-                  onClick={e => e.stopPropagation()}
-                >
-                  {/* Drag Handle */}
-                  <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-2.5 shrink-0" />
-
-                  {/* Body Content */}
-                  <div className="flex-1 overflow-y-auto">
-                    <PropertyDetail
-                      property={selectedProperty}
-                      currentRole={currentUser.role}
-                      currentUserName={currentUser.name}
-                      onClose={() => setSelectedPropertyId(null)}
-                      onAddFollowUp={handleAddFollowUp}
-                      onToggleFollowUp={handleToggleFollowUp}
-                      onDeleteFollowUp={handleDeleteFollowUp}
-                      onAddVisitLog={handleAddVisitLog}
-                      onUpdateNotes={handleUpdateNotes}
-                    />
-                  </div>
-                </div>
-              </div>
+              <PropertyDetailSheet
+                key={selectedProperty.id}
+                className={isMapExpanded ? '' : 'lg:hidden'}
+                onClose={() => setSelectedPropertyId(null)}
+              >
+                <PropertyDetail
+                  property={selectedProperty}
+                  showBackButton={false}
+                  currentRole={currentUser.role}
+                  currentUserName={currentUser.name}
+                  onClose={() => setSelectedPropertyId(null)}
+                  onAddFollowUp={handleAddFollowUp}
+                  onToggleFollowUp={handleToggleFollowUp}
+                  onDeleteFollowUp={handleDeleteFollowUp}
+                  onAddVisitLog={handleAddVisitLog}
+                  onUpdateNotes={handleUpdateNotes}
+                />
+              </PropertyDetailSheet>
             )}
           </div>
         )}

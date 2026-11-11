@@ -7,7 +7,7 @@ import { LogVisitModal } from './LogVisitModal';
 import { EditPropertyNotesModal } from './EditPropertyNotesModal';
 import { HouseholdFlags } from './HouseholdFlags';
 import {
-  X,
+  ArrowLeft,
   Plus,
   CheckCircle2,
   Circle,
@@ -31,6 +31,7 @@ interface PropertyDetailProps {
   currentRole: WardRole;
   currentUserName: string;
   onClose: () => void;
+  showBackButton?: boolean;
   onAddFollowUp: (propertyId: string, item: Omit<FollowUpItem, 'id' | 'createdAt' | 'propertyId'>) => void;
   onToggleFollowUp: (propertyId: string, followUpId: string) => void;
   onDeleteFollowUp: (propertyId: string, followUpId: string) => void;
@@ -43,6 +44,7 @@ export const PropertyDetail: React.FC<PropertyDetailProps> = ({
   currentRole,
   currentUserName,
   onClose,
+  showBackButton = true,
   onAddFollowUp,
   onToggleFollowUp,
   onDeleteFollowUp,
@@ -87,13 +89,15 @@ export const PropertyDetail: React.FC<PropertyDetailProps> = ({
             )}
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors shrink-0"
-            aria-label="Close details"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {showBackButton && (
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors shrink-0"
+              aria-label="Back to map"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         <HouseholdFlags property={property} />
