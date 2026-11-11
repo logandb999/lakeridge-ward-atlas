@@ -106,7 +106,7 @@ test('reading the admin usage count does not reserve an opening', async () => {
     reserve: async () => assert.fail('Usage reads must not reserve a map opening'),
   });
   const { res, result } = response();
-  await handler({ ...req, method: 'GET' }, res);
+  await handler({ ...req, method: 'GET' } as VercelRequest, res);
   assert.equal(result.status, 200);
   assert.deepEqual(result.body, { period: '2026-11', used: 0, limit: MONTHLY_MAP_LOAD_LIMIT });
 });

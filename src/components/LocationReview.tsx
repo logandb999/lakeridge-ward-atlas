@@ -74,7 +74,7 @@ export function LocationReview({ apiKey, email, colorScheme }: { apiKey: string;
     </div>
     <section className="max-h-[50vh] w-full overflow-y-auto border-l border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 lg:max-h-none lg:w-[400px]" aria-label="Private location review">
       <h2 className="text-lg font-bold">Review approximate locations</h2>
-      <p className="mt-1 text-sm text-slate-500">Private review for your account. Select an address, then drag its pin or click the map to place it on the building. Confirming saves the review, without importing household records.</p>
+      <p className="mt-1 text-sm text-slate-500">Select an address, then drag its pin or click the map to place it on the building. Confirming also updates any linked households already in the atlas.</p>
       <label className="mt-3 block text-sm">Review filter
         <select value={view} disabled={busy} onChange={e => { if (canLeave()) { setView(e.target.value as typeof view); setSelectedId(''); setDraft(null); setNote(''); } }} className="mt-1 w-full rounded-lg border p-2 dark:bg-slate-800">
           <option value="pending">Approximate — needs review ({locations.filter(r => r.status === 'pending').length})</option>

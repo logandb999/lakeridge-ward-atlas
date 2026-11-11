@@ -1,4 +1,4 @@
-import { normalizeStreet, type AddressQuery } from './addressMatching';
+import { normalizeStreet, type AddressQuery } from './addressMatching.js';
 
 export const GEOCODING_CACHE_DAYS = 29;
 export const GEOCODING_ASSESSMENT_VERSION = 'orem-street-variants-v1';

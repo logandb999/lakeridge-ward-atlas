@@ -44,10 +44,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let update;
     try { update = buildLocationReviewUpdate(req.body, user.email); }
     catch (error) { return res.status(400).json({ error: (error as Error).message }); }
-    const rows = await sql`UPDATE atlas_location_review SET data = data || ${JSON.stringify(update.changes)}::jsonb, revision = revision + 1
+    const rows = await sql`WITH reviewed AS (
+      UPDATE atlas_location_review SET data = data || ${JSON.stringify(update.changes)}::jsonb, revision = revision + 1
       WHERE id = ${update.id} AND revision = ${update.revision}
       AND (${update.requiresUnexpiredCoordinates} = false OR (data->>'expiresAt')::timestamptz > now())
-      RETURNING id, revision, data`;
+      RETURNING id, revision, data
+    ), synced AS (
+      UPDATE atlas_state s SET data = (
+        SELECT COALESCE(jsonb_agg(
+          CASE WHEN (p->'location'->>'reviewId' = r.id OR p->'location'->>'pendingReviewId' = r.id)
+            AND r.data->'householdIds' ? (p->'importIdentity'->>'recordId')
+          THEN p || jsonb_build_object(
+            'householdFlags', (
+              SELECT COALESCE(jsonb_agg(flag), '[]'::jsonb)
+              FROM (SELECT DISTINCT flag FROM (
+                SELECT value AS flag FROM jsonb_array_elements(COALESCE(p->'householdFlags', '[]'::jsonb))
+                  WHERE value <> '"verify_address"'::jsonb
+                UNION ALL SELECT '"verify_address"'::jsonb WHERE ${update.requiresUnexpiredCoordinates} = false
+              ) flags) unique_flags
+            ),
+            'location', CASE WHEN ${update.requiresUnexpiredCoordinates}
+              THEN (p->'location' - 'pendingReviewId') || jsonb_build_object(
+                'reviewId', r.id, 'status', 'confirmed', 'expiresAt', r.data->>'expiresAt')
+              ELSE p->'location' || jsonb_build_object('status', 'needs_contact') END
+          ) || CASE WHEN ${update.requiresUnexpiredCoordinates}
+            THEN jsonb_build_object('coordinates', r.data->'coordinates' || '{"x":500,"y":400}'::jsonb)
+            ELSE '{}'::jsonb END
+          ELSE p END ORDER BY ord), '[]'::jsonb)
+        FROM jsonb_array_elements(s.data) WITH ORDINALITY AS e(p, ord), reviewed r
+      ), revision = revision + 1
+      WHERE id = 1 AND EXISTS (
+        SELECT 1 FROM jsonb_array_elements(s.data) p, reviewed r
+        WHERE (p->'location'->>'reviewId' = r.id OR p->'location'->>'pendingReviewId' = r.id)
+          AND r.data->'householdIds' ? (p->'importIdentity'->>'recordId')
+      ) RETURNING id
+    ) SELECT id, revision, data FROM reviewed`;
     if (!rows.length) return res.status(409).json({ error: 'This review changed or its coordinates expired. Reload the queue before continuing.' });
     const row = rows[0];
     return res.status(200).json({ location: { ...row.data, id: row.id, revision: row.revision } });

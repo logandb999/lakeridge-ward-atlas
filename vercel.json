@@ -1,8 +1,14 @@
 {
-  "crons": [{ "path": "/api/location-review?cleanup=1", "schedule": "0 8 * * *" }],
+  "crons": [
+    { "path": "/api/geocoding-refresh", "schedule": "0 7 * * *" },
+    { "path": "/api/location-review?cleanup=1", "schedule": "0 8 * * *" }
+  ],
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 10
+    },
+    "api/geocoding-refresh.ts": {
+      "maxDuration": 300
     }
   }
 }
